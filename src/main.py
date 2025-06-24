@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-from bullet import Input
 import os
+from bullet import Input
+from yaspin import yaspin
 from api_client import TavusAPIClient
 from state_machine import StateMachine
-from yaspin import yaspin
 
 def main():
   print("Welcome to the Tavus Python CLI Tool!")

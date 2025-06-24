@@ -4,6 +4,7 @@ from bullet import Input, Bullet, YesNo
 from yaspin import yaspin
 from enum import Enum
 from api_client import TavusAPIClient
+from models import Replica, Persona
 
 # State enum
 class State(Enum):
@@ -25,8 +26,8 @@ class StateMachine:
     self.api_client = None
     self.api_key = None
     self.current_state = State.MAIN_MENU
-    self.replicas = []
-    self.personas = []
+    self.replicas = []  # List of Replica objects
+    self.personas = []  # List of Persona objects
   
   def execute_current_state(self):
     """Execute the current state and update the next state"""
@@ -216,7 +217,8 @@ class StateMachine:
 
     success, message, fetched_replicas = self.api_client.fetch_replicas()
     if success:
-      self.replicas = fetched_replicas
+      # Convert dictionary data to Replica objects
+      self.replicas = [Replica.from_dict(replica_data) for replica_data in fetched_replicas]
     else:
       print(message)
 
@@ -228,7 +230,8 @@ class StateMachine:
 
     success, message, fetched_personas = self.api_client.fetch_personas()
     if success:
-      self.personas = fetched_personas
+      # Convert dictionary data to Persona objects
+      self.personas = [Persona.from_dict(persona_data) for persona_data in fetched_personas]
     else:
       print(message)
 
@@ -245,45 +248,21 @@ class StateMachine:
     return self.current_state == State.EXIT 
 
   def print_replicas(self):
-    """Print the replicas list with nice formatting"""
+    """Print the replicas list using short display format"""
     if not self.replicas:
       print("No replicas found.")
       return
     
     print(f"Found {len(self.replicas)} replica(s):\n")
     for i, replica in enumerate(self.replicas, 1):
-      replica_id = replica.get('replica_id', 'N/A')
-      replica_name = replica.get('replica_name', 'N/A')
-      replica_type = replica.get('replica_type', 'N/A')
-      status = replica.get('status', 'N/A')
-      training_progress = replica.get('training_progress', 'N/A')
-      created_at = replica.get('created_at', 'N/A')
-      
-      print(f"{i}. Replica ID: {replica_id}")
-      print(f"   Name: {replica_name}")
-      print(f"   Type: {replica_type}")
-      print(f"   Status: {status}")
-      print(f"   Training Progress: {training_progress}")
-      print(f"   Created: {created_at}")
-      print()
+      print(f"{i}. {replica.display_short()}")
 
   def print_personas(self):
-    """Print the personas list with nice formatting"""
+    """Print the personas list using short display format"""
     if not self.personas:
       print("No personas found.")
       return
     
     print(f"Found {len(self.personas)} persona(s):\n")
     for i, persona in enumerate(self.personas, 1):
-      persona_id = persona.get('persona_id', 'N/A')
-      persona_name = persona.get('persona_name', 'N/A')
-      default_replica_id = persona.get('default_replica_id', 'N/A')
-      created_at = persona.get('created_at', 'N/A')
-      updated_at = persona.get('updated_at', 'N/A')
-      
-      print(f"{i}. Persona ID: {persona_id}")
-      print(f"   Name: {persona_name}")
-      print(f"   Default Replica ID: {default_replica_id}")
-      print(f"   Created: {created_at}")
-      print(f"   Updated: {updated_at}")
-      print()
+      print(f"{i}. {persona.display_short()}")
