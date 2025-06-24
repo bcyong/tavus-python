@@ -336,6 +336,10 @@ class StateMachine:
     """Handle video delete when a video is selected from the list"""
     print(f"\nDeleting video: {video.video_name} ({video.video_id})")
     print("=" * 50)
+    
+    # Show full video details first
+    self.show_video_details(video)
+    print("=" * 50)
 
     cli = YesNo("Are you sure you want to delete this video?", default="n")
     if cli.launch():
@@ -367,6 +371,10 @@ class StateMachine:
     print(f"\nRenaming video: {video.video_name} ({video.video_id})")
     print("=" * 50)
     
+    # Show full video details first
+    self.show_video_details(video)
+    print("=" * 50)
+    
     if self.api_client is None:
       print("Error: API client not initialized.")
       input("Press Enter to continue...")
@@ -377,6 +385,18 @@ class StateMachine:
     
     if not new_name.strip():
       print("Video name cannot be empty. Please try again.")
+      input("Press Enter to continue...")
+      return None  # Return to video list
+    
+    # Show confirmation dialog
+    print(f"\nConfirm rename operation:")
+    print(f"  From: {video.video_name}")
+    print(f"  To:   {new_name}")
+    print("=" * 50)
+    
+    cli = YesNo("Are you sure you want to rename this video?", default="n")
+    if not cli.launch():
+      print("Rename operation cancelled.")
       input("Press Enter to continue...")
       return None  # Return to video list
     
