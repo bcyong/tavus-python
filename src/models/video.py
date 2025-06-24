@@ -61,19 +61,19 @@ class Video:
   
   def is_completed(self) -> bool:
     """Check if the video generation is completed"""
-    return self.status.lower() in ['completed', 'ready', 'finished']
+    return self.status in ['ready']
   
   def is_processing(self) -> bool:
     """Check if the video is currently being processed"""
-    return self.status.lower() in ['processing', 'generating', 'creating']
+    return self.status in ['generating']
   
   def is_failed(self) -> bool:
     """Check if the video generation failed"""
-    return self.status.lower() in ['failed', 'error', 'cancelled']
+    return self.status in ['error']
   
   def is_pending(self) -> bool:
     """Check if the video is pending generation"""
-    return self.status.lower() in ['pending', 'queued', 'waiting']
+    return self.status in ['queued']
   
   def has_script(self) -> bool:
     """Check if the video has a script in the data"""
