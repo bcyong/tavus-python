@@ -331,8 +331,42 @@ class StateMachine:
   def execute_rename_video(self):
     """Execute rename video functionality and return next state"""
     print("\n=== Rename Video ===")
-    print("Rename video functionality will be implemented here...")
-    # TODO: Implement rename video logic
+    
+    if self.api_client is None:
+      print("Error: API client not initialized. Please set your API key first.")
+      return State.MAIN_MENU
+
+    return self.show_paginated_videos(on_video_select=self._handle_video_rename)
+
+  def _handle_video_rename(self, video):
+    """Handle video rename when a video is selected from the list"""
+    print(f"\nRenaming video: {video.video_name} ({video.video_id})")
+    print("=" * 50)
+    
+    if self.api_client is None:
+      print("Error: API client not initialized.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_VIDEOS
+    
+    cli = Input("Enter new video name: ")
+    new_name = cli.launch()
+    
+    if not new_name.strip():
+      print("Video name cannot be empty. Please try again.")
+      input("Press Enter to continue...")
+      return None  # Return to video list
+    
+    with yaspin(text="Renaming video..."):
+      success, message = self.api_client.rename_video(video.video_id, new_name)
+    
+    if success:
+      print(f"Video renamed successfully to: {new_name}")
+      # Update the video object in our list
+      video.video_name = new_name
+    else:
+      print(f"Error renaming video: {message}")
+    
+    input("Press Enter to continue...")
     return State.WORK_WITH_VIDEOS
 
   def update_replicas(self):
@@ -704,8 +738,16 @@ class StateMachine:
     print(video.display_verbose())
     print("=" * 60)
 
-  def show_paginated_videos(self, page=0, items_per_page=10):
-    """Show paginated list of videos with selection"""
+  def show_paginated_videos(self, page=0, items_per_page=10, on_video_select=None):
+    """Show paginated list of videos with selection
+    
+    Args:
+      page: Current page number (0-based)
+      items_per_page: Number of items per page
+      on_video_select: Optional callback function to call when a video is selected.
+                      Should accept a Video object and return a State or None.
+                      If None, shows video details and returns to list.
+    """
     if not self.videos:
       print("No videos found.")
       input("Press Enter to continue...")
@@ -748,24 +790,35 @@ class StateMachine:
 
     # Handle navigation
     if result == "← Previous Page":
-      return self.show_paginated_videos(page - 1, items_per_page)
+      return self.show_paginated_videos(page - 1, items_per_page, on_video_select)
     elif result == "→ Next Page":
-      return self.show_paginated_videos(page + 1, items_per_page)
+      return self.show_paginated_videos(page + 1, items_per_page, on_video_select)
     elif result == "← Go Back":
       return State.WORK_WITH_VIDEOS
     
     # Handle video selection
     if result.startswith("→"):
-      return self.show_paginated_videos(page, items_per_page)
+      return self.show_paginated_videos(page, items_per_page, on_video_select)
     
     # Extract video index from selection
     try:
       video_idx = int(result.split('.')[0]) - 1
       if 0 <= video_idx < len(self.videos):
-        self.show_video_details(self.videos[video_idx])
-        input("Press Enter to continue...")
-        return self.show_paginated_videos(page, items_per_page)
+        selected_video = self.videos[video_idx]
+        
+        if on_video_select:
+          # Call the custom callback function
+          result_state = on_video_select(selected_video)
+          if result_state:
+            return result_state
+          # If callback returns None, continue showing the list
+          return self.show_paginated_videos(page, items_per_page, on_video_select)
+        else:
+          # Default behavior: show video details
+          self.show_video_details(selected_video)
+          input("Press Enter to continue...")
+          return self.show_paginated_videos(page, items_per_page, on_video_select)
     except (ValueError, IndexError):
       pass
     
-    return self.show_paginated_videos(page, items_per_page)
+    return self.show_paginated_videos(page, items_per_page, on_video_select)
