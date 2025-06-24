@@ -1,0 +1,4 @@
+click>=8.0.0
+bullet>=2.2.0
+yaspin>=2.1.0
+requests>=2.25.0 
