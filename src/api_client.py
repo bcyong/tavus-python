@@ -11,14 +11,17 @@ class TavusAPIClient:
     self.base_url = "https://tavusapi.com/v2"
     self.headers = {"x-api-key": api_key}
   
-  def fetch_replicas(self) -> Tuple[bool, str, List[Dict]]:
+  def list_replicas(self, limit: int = 1000) -> Tuple[bool, str, List[Dict]]:
     """
-    Fetch replicas from Tavus API
+    List replicas from Tavus API
     
+    Args:
+      limit: The number of replicas to return. Default is 1000.
+      
     Returns:
       Tuple[bool, str, List[Dict]]: (success, message, replicas_list)
     """
-    url = f"{self.base_url}/replicas?verbose=true&limit=1000"
+    url = f"{self.base_url}/replicas?verbose=true&limit={limit}"
     
     try:
       response = requests.request("GET", url, headers=self.headers)
@@ -129,7 +132,7 @@ class TavusAPIClient:
     except Exception as e:
       return False, f"Error renaming replica: {e}"
   
-  def fetch_personas(self, persona_type: str = "system") -> Tuple[bool, str, List[Dict]]:
+  def list_personas(self, persona_type: str = "system", limit: int = 1000) -> Tuple[bool, str, List[Dict]]:
     """
     Fetch personas from Tavus API
     
@@ -139,7 +142,7 @@ class TavusAPIClient:
     Returns:
       Tuple[bool, str, List[Dict]]: (success, message, personas_list)
     """
-    url = f"{self.base_url}/personas?limit=1000&persona_type={persona_type}"
+    url = f"{self.base_url}/personas?limit={limit}&persona_type={persona_type}"
     
     try:
       response = requests.request("GET", url, headers=self.headers)
@@ -223,4 +226,125 @@ class TavusAPIClient:
         return False, f"Error: HTTP {response.status_code} - {response.text}"
         
     except Exception as e:
-      return False, f"Error updating persona: {e}" 
+      return False, f"Error updating persona: {e}"
+  
+  def generate_video(self, video_data: Dict) -> Tuple[bool, str, Optional[Dict]]:
+    """
+    Generate a new video
+    
+    Args:
+      video_data: Dictionary containing video generation parameters
+      
+    Returns:
+      Tuple[bool, str, Optional[Dict]]: (success, message, generated_video_data)
+    """
+    url = f"{self.base_url}/videos"
+    
+    try:
+      response = requests.request("POST", url, headers=self.headers, json=video_data)
+      
+      if response.status_code == 201:
+        generated_video = response.json()
+        return True, "Successfully generated video", generated_video
+      else:
+        return False, f"Error: HTTP {response.status_code} - {response.text}", None
+        
+    except Exception as e:
+      return False, f"Error generating video: {e}", None
+
+  def get_video(self, video_id: str) -> Tuple[bool, str, Optional[Dict]]:
+    """
+    Get a specific video by ID
+    
+    Args:
+      video_id: The ID of the video to fetch
+      
+    Returns:
+      Tuple[bool, str, Optional[Dict]]: (success, message, video_data)
+    """
+    url = f"{self.base_url}/videos/{video_id}"
+    
+    try:
+      response = requests.request("GET", url, headers=self.headers)
+      
+      if response.status_code == 200:
+        video_data = response.json()
+        return True, "Successfully fetched video", video_data
+      else:
+        return False, f"Error: HTTP {response.status_code} - {response.text}", None
+        
+    except Exception as e:
+      return False, f"Error fetching video: {e}", None
+
+  def list_videos(self, limit: int = 1000) -> Tuple[bool, str, List[Dict]]:
+    """
+    List videos from Tavus API
+    
+    Args:
+      limit: The number of videos to return. Default is 1000.
+      
+    Returns:
+      Tuple[bool, str, List[Dict]]: (success, message, videos_list)
+    """
+    url = f"{self.base_url}/videos?limit={limit}"
+    
+    try:
+      response = requests.request("GET", url, headers=self.headers)
+      
+      if response.status_code == 200:
+        response_data = response.json()
+        videos = response_data.get('data', [])
+        return True, f"Successfully fetched {len(videos)} video(s)", videos
+      else:
+        return False, f"Error: HTTP {response.status_code} - {response.text}", []
+        
+    except Exception as e:
+      return False, f"Error fetching videos: {e}", []
+
+  def delete_video(self, video_id: str) -> Tuple[bool, str]:
+    """
+    Delete a video by ID
+    
+    Args:
+      video_id: The ID of the video to delete
+      
+    Returns:
+      Tuple[bool, str]: (success, message)
+    """
+    url = f"{self.base_url}/videos/{video_id}"
+    
+    try:
+      response = requests.request("DELETE", url, headers=self.headers)
+      
+      if response.status_code == 204:
+        return True, "Successfully deleted video"
+      else:
+        return False, f"Error: HTTP {response.status_code} - {response.text}"
+        
+    except Exception as e:
+      return False, f"Error deleting video: {e}"
+
+  def rename_video(self, video_id: str, new_name: str) -> Tuple[bool, str]:
+    """
+    Rename a video
+    
+    Args:
+      video_id: The ID of the video to rename
+      new_name: The new name for the video
+      
+    Returns:
+      Tuple[bool, str]: (success, message)
+    """
+    url = f"{self.base_url}/videos/{video_id}"
+    payload = {"video_name": new_name}
+    
+    try:
+      response = requests.request("PATCH", url, headers=self.headers, json=payload)
+      
+      if response.status_code == 200:
+        return True, "Successfully renamed video"
+      else:
+        return False, f"Error: HTTP {response.status_code} - {response.text}"
+        
+    except Exception as e:
+      return False, f"Error renaming video: {e}" 

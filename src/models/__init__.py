@@ -2,5 +2,6 @@
 
 from .replica import Replica
 from .persona import Persona
+from .video import Video
 
-__all__ = ['Replica', 'Persona'] 
+__all__ = ['Replica', 'Persona', 'Video'] 

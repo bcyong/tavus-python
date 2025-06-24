@@ -4,7 +4,7 @@ from bullet import Input, Bullet, YesNo
 from yaspin import yaspin
 from enum import Enum
 from api_client import TavusAPIClient
-from models import Replica, Persona
+from models import Replica, Persona, Video
 
 # State enum
 class State(Enum):
@@ -12,6 +12,7 @@ class State(Enum):
   SET_API_KEY = "set_api_key"
   WORK_WITH_REPLICAS = "work_with_replicas"
   WORK_WITH_PERSONAS = "work_with_personas"
+  WORK_WITH_VIDEOS = "work_with_videos"
   CREATE_REPLICA = "create_replica"
   LIST_REPLICAS = "list_replicas"
   MODIFY_REPLICA = "modify_replica"
@@ -20,6 +21,10 @@ class State(Enum):
   LIST_PERSONAS = "list_personas"
   SELECT_PERSONA_TYPE = "select_persona_type"
   DELETE_PERSONA = "delete_persona"
+  CREATE_VIDEO = "create_video"
+  LIST_VIDEOS = "list_videos"
+  DELETE_VIDEO = "delete_video"
+  RENAME_VIDEO = "rename_video"
   EXIT = "exit"
 
 class StateMachine:
@@ -29,6 +34,7 @@ class StateMachine:
     self.current_state = State.MAIN_MENU
     self.replicas = []  # List of Replica objects
     self.personas = []  # List of Persona objects
+    self.videos = []  # List of Video objects
   
   def execute_current_state(self):
     """Execute the current state and update the next state"""
@@ -40,6 +46,8 @@ class StateMachine:
       self.current_state = self.execute_work_with_replicas()
     elif self.current_state == State.WORK_WITH_PERSONAS:
       self.current_state = self.execute_work_with_personas()
+    elif self.current_state == State.WORK_WITH_VIDEOS:
+      self.current_state = self.execute_work_with_videos()
     elif self.current_state == State.CREATE_REPLICA:
       self.current_state = self.execute_create_replica()
     elif self.current_state == State.LIST_REPLICAS:
@@ -56,6 +64,14 @@ class StateMachine:
       self.current_state = self.execute_select_persona_type()
     elif self.current_state == State.DELETE_PERSONA:
       self.current_state = self.execute_delete_persona()
+    elif self.current_state == State.CREATE_VIDEO:
+      self.current_state = self.execute_create_video()
+    elif self.current_state == State.LIST_VIDEOS:
+      self.current_state = self.execute_list_videos()
+    elif self.current_state == State.DELETE_VIDEO:
+      self.current_state = self.execute_delete_video()
+    elif self.current_state == State.RENAME_VIDEO:
+      self.current_state = self.execute_rename_video()
     else:
       print(f"Unknown state: {self.current_state}")
       self.current_state = State.MAIN_MENU
@@ -67,7 +83,7 @@ class StateMachine:
     
     cli = Bullet(
       prompt="What would you like to do?",
-      choices=["Set API Key", "Work with Replicas", "Work with Personas", "Exit"],
+      choices=["Set API Key", "Work with Replicas", "Work with Personas", "Work with Videos", "Exit"],
       bullet="→",
       margin=2,
       shift=0,
@@ -80,6 +96,8 @@ class StateMachine:
       return State.WORK_WITH_REPLICAS
     elif result == "Work with Personas":
       return State.WORK_WITH_PERSONAS
+    elif result == "Work with Videos":
+      return State.WORK_WITH_VIDEOS
     elif result == "Exit":
       return State.EXIT
     else:
@@ -151,6 +169,35 @@ class StateMachine:
       return State.MAIN_MENU
     else:
       return State.WORK_WITH_PERSONAS
+
+  def execute_work_with_videos(self):
+    """Execute work with videos menu and return next state"""
+    print("\n=== Work with Videos ===")
+
+    with yaspin(text="Loading videos..."):
+      self.update_videos()
+
+    cli = Bullet(
+      prompt="What would you like to do with Videos?",
+      choices=["Create a Video", "List Videos", "Delete a Video", "Rename a Video", "Back to Main Menu"],
+      bullet="📼",
+      margin=2,
+      shift=0,
+    )
+    result = cli.launch()
+
+    if result == "Create a Video":
+      return State.CREATE_VIDEO
+    elif result == "List Videos":
+      return State.LIST_VIDEOS
+    elif result == "Delete a Video":
+      return State.DELETE_VIDEO
+    elif result == "Rename a Video":
+      return State.RENAME_VIDEO
+    elif result == "Back to Main Menu":
+      return State.MAIN_MENU
+    else:
+      return State.WORK_WITH_VIDEOS
 
   def execute_create_replica(self):
     """Execute create replica functionality and return next state"""
@@ -231,13 +278,44 @@ class StateMachine:
     
     return State.WORK_WITH_PERSONAS
 
+  def execute_create_video(self):
+    """Execute create video functionality and return next state"""
+    print("\n=== Create Video ===")
+    print("Create video functionality will be implemented here...")
+    # TODO: Implement create video logic
+    return State.WORK_WITH_VIDEOS
+
+  def execute_list_videos(self):
+    """Execute list videos functionality and return next state"""
+    print("\n=== List Videos ===")
+    
+    if self.api_client is None:
+      print("Error: API client not initialized. Please set your API key first.")
+      return State.MAIN_MENU
+
+    return self.show_paginated_videos()
+
+  def execute_delete_video(self):
+    """Execute delete video functionality and return next state"""
+    print("\n=== Delete Video ===")
+    print("Delete video functionality will be implemented here...")
+    # TODO: Implement delete video logic
+    return State.WORK_WITH_VIDEOS
+
+  def execute_rename_video(self):
+    """Execute rename video functionality and return next state"""
+    print("\n=== Rename Video ===")
+    print("Rename video functionality will be implemented here...")
+    # TODO: Implement rename video logic
+    return State.WORK_WITH_VIDEOS
+
   def update_replicas(self):
     """Update the replicas list from API"""
     if self.api_client is None:
       print("Error: API client not initialized. Please set your API key first.")
       return
 
-    success, message, fetched_replicas = self.api_client.fetch_replicas()
+    success, message, fetched_replicas = self.api_client.list_replicas()
     if success:
       # Convert dictionary data to Replica objects
       self.replicas = [Replica.from_dict(replica_data) for replica_data in fetched_replicas]
@@ -250,10 +328,23 @@ class StateMachine:
       print("Error: API client not initialized. Please set your API key first.")
       return
 
-    success, message, fetched_personas = self.api_client.fetch_personas(persona_type)
+    success, message, fetched_personas = self.api_client.list_personas(persona_type)
     if success:
       # Convert dictionary data to Persona objects
       self.personas = [Persona.from_dict(persona_data) for persona_data in fetched_personas]
+    else:
+      print(message)
+
+  def update_videos(self):
+    """Update the videos list from API"""
+    if self.api_client is None:
+      print("Error: API client not initialized. Please set your API key first.")
+      return
+
+    success, message, fetched_videos = self.api_client.list_videos()
+    if success:
+      # Convert dictionary data to Video objects
+      self.videos = [Video.from_dict(video_data) for video_data in fetched_videos]
     else:
       print(message)
 
@@ -598,3 +689,77 @@ class StateMachine:
     print("=" * 60)
     print(persona.display_verbose())
     print("=" * 60)
+
+  def show_video_details(self, video):
+    """Show detailed information for a specific video"""
+    print("\n" + "=" * 60)
+    print("VIDEO DETAILS")
+    print("=" * 60)
+    print(video.display_verbose())
+    print("=" * 60)
+
+  def show_paginated_videos(self, page=0, items_per_page=10):
+    """Show paginated list of videos with selection"""
+    if not self.videos:
+      print("No videos found.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_VIDEOS
+
+    total_pages = (len(self.videos) - 1) // items_per_page
+    start_idx = page * items_per_page
+    end_idx = min(start_idx + items_per_page, len(self.videos))
+    current_videos = self.videos[start_idx:end_idx]
+
+    print(f"\nPage {page + 1} of {total_pages + 1} ({len(self.videos)} videos)")
+    print("=" * 50)
+
+    # Build choices list
+    choices = []
+    
+    # Add navigation options
+    if page > 0:
+      choices.append("← Previous Page")
+    
+    # Add video items
+    for i, video in enumerate(current_videos, start_idx + 1):
+      choices.append(f"{i}. {video.display_short()}")
+    
+    # Add navigation options
+    if page < total_pages:
+      choices.append("→ Next Page")
+    
+    choices.append("← Go Back")
+
+    # Show menu
+    cli = Bullet(
+      prompt="Select a video to view details or navigate:",
+      choices=choices,
+      bullet="→",
+      margin=2,
+      shift=0,
+    )
+    result = cli.launch()
+
+    # Handle navigation
+    if result == "← Previous Page":
+      return self.show_paginated_videos(page - 1, items_per_page)
+    elif result == "→ Next Page":
+      return self.show_paginated_videos(page + 1, items_per_page)
+    elif result == "← Go Back":
+      return State.WORK_WITH_VIDEOS
+    
+    # Handle video selection
+    if result.startswith("→"):
+      return self.show_paginated_videos(page, items_per_page)
+    
+    # Extract video index from selection
+    try:
+      video_idx = int(result.split('.')[0]) - 1
+      if 0 <= video_idx < len(self.videos):
+        self.show_video_details(self.videos[video_idx])
+        input("Press Enter to continue...")
+        return self.show_paginated_videos(page, items_per_page)
+    except (ValueError, IndexError):
+      pass
+    
+    return self.show_paginated_videos(page, items_per_page)

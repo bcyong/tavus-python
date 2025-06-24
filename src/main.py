@@ -26,6 +26,8 @@ def main(api_key_file):
     state_machine.update_replicas()
   with yaspin(text="Loading personas..."):
     state_machine.update_personas()
+  with yaspin(text="Loading videos..."):
+    state_machine.update_videos()
   print("Initialization complete!")
 
   # State machine loop
