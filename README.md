@@ -13,7 +13,7 @@ A Python CLI wrapper for the Tavus API that provides an interactive command-line
 
 
 <p align="center"><img src="/img/demo.gif?raw=true"/></p>
-<p align="center">(yes, the API key is invalid)</p>
+<p align="center">(the API key is invalid)</p>
 
 ## Installation
 
