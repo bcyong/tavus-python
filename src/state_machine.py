@@ -165,31 +165,8 @@ class StateMachine:
     if self.api_client is None:
       print("Error: API client not initialized. Please set your API key first.")
       return State.MAIN_MENU
-    
-    success, message, self.replicas = self.api_client.fetch_replicas()
-    if success:
-      print(message)
-      if not self.replicas:
-        print("No replicas found.")
-      else:
-        for i, replica in enumerate(self.replicas, 1):
-          replica_id = replica.get('replica_id', 'N/A')
-          replica_name = replica.get('replica_name', 'N/A')
-          replica_type = replica.get('replica_type', 'N/A')
-          status = replica.get('status', 'N/A')
-          training_progress = replica.get('training_progress', 'N/A')
-          created_at = replica.get('created_at', 'N/A')
-          
-          print(f"{i}. Replica ID: {replica_id}")
-          print(f"   Name: {replica_name}")
-          print(f"   Type: {replica_type}")
-          print(f"   Status: {status}")
-          print(f"   Training Progress: {training_progress}")
-          print(f"   Created: {created_at}")
-          print()
-    else:
-      print(message)
 
+    self.print_replicas()
     return State.WORK_WITH_REPLICAS
 
   def execute_modify_replica(self):
@@ -216,8 +193,12 @@ class StateMachine:
   def execute_list_personas(self):
     """Execute list personas functionality and return next state"""
     print("\n=== List Personas ===")
-    print("List personas functionality will be implemented here...")
-    # TODO: Implement list personas logic
+    
+    if self.api_client is None:
+      print("Error: API client not initialized. Please set your API key first.")
+      return State.MAIN_MENU
+
+    self.print_personas()
     return State.WORK_WITH_PERSONAS
 
   def execute_delete_persona(self):
@@ -262,3 +243,47 @@ class StateMachine:
   def is_exit_state(self):
     """Check if current state is exit"""
     return self.current_state == State.EXIT 
+
+  def print_replicas(self):
+    """Print the replicas list with nice formatting"""
+    if not self.replicas:
+      print("No replicas found.")
+      return
+    
+    print(f"Found {len(self.replicas)} replica(s):\n")
+    for i, replica in enumerate(self.replicas, 1):
+      replica_id = replica.get('replica_id', 'N/A')
+      replica_name = replica.get('replica_name', 'N/A')
+      replica_type = replica.get('replica_type', 'N/A')
+      status = replica.get('status', 'N/A')
+      training_progress = replica.get('training_progress', 'N/A')
+      created_at = replica.get('created_at', 'N/A')
+      
+      print(f"{i}. Replica ID: {replica_id}")
+      print(f"   Name: {replica_name}")
+      print(f"   Type: {replica_type}")
+      print(f"   Status: {status}")
+      print(f"   Training Progress: {training_progress}")
+      print(f"   Created: {created_at}")
+      print()
+
+  def print_personas(self):
+    """Print the personas list with nice formatting"""
+    if not self.personas:
+      print("No personas found.")
+      return
+    
+    print(f"Found {len(self.personas)} persona(s):\n")
+    for i, persona in enumerate(self.personas, 1):
+      persona_id = persona.get('persona_id', 'N/A')
+      persona_name = persona.get('persona_name', 'N/A')
+      default_replica_id = persona.get('default_replica_id', 'N/A')
+      created_at = persona.get('created_at', 'N/A')
+      updated_at = persona.get('updated_at', 'N/A')
+      
+      print(f"{i}. Persona ID: {persona_id}")
+      print(f"   Name: {persona_name}")
+      print(f"   Default Replica ID: {default_replica_id}")
+      print(f"   Created: {created_at}")
+      print(f"   Updated: {updated_at}")
+      print()
