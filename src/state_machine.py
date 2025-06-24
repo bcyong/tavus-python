@@ -18,6 +18,7 @@ class State(Enum):
   DELETE_REPLICA = "delete_replica"
   CREATE_PERSONA = "create_persona"
   LIST_PERSONAS = "list_personas"
+  SELECT_PERSONA_TYPE = "select_persona_type"
   DELETE_PERSONA = "delete_persona"
   EXIT = "exit"
 
@@ -51,6 +52,8 @@ class StateMachine:
       self.current_state = self.execute_create_persona()
     elif self.current_state == State.LIST_PERSONAS:
       self.current_state = self.execute_list_personas()
+    elif self.current_state == State.SELECT_PERSONA_TYPE:
+      self.current_state = self.execute_select_persona_type()
     elif self.current_state == State.DELETE_PERSONA:
       self.current_state = self.execute_delete_persona()
     else:
@@ -128,9 +131,6 @@ class StateMachine:
   def execute_work_with_personas(self):
     """Execute work with personas menu and return next state"""
     print("\n=== Work with Personas ===")
-    
-    with yaspin(text="Loading personas..."):
-      self.update_personas()
 
     cli = Bullet(
       prompt="What would you like to do with Personas?",
@@ -198,13 +198,37 @@ class StateMachine:
       print("Error: API client not initialized. Please set your API key first.")
       return State.MAIN_MENU
 
-    return self.show_paginated_personas()
+    return State.SELECT_PERSONA_TYPE
 
   def execute_delete_persona(self):
     """Execute delete persona functionality and return next state"""
     print("\n=== Delete Persona ===")
     print("Delete persona functionality will be implemented here...")
     # TODO: Implement delete persona logic
+    return State.WORK_WITH_PERSONAS
+
+  def execute_select_persona_type(self):
+    """Execute select persona type functionality and return next state"""
+    print("\n=== Select Persona Type ===")
+    
+    cli = Bullet(
+      prompt="Select persona type:",
+      choices=["user", "system"],
+      bullet="→",
+      margin=2,
+      shift=0,
+    )
+    result = cli.launch()
+
+    if result == "user":
+      with yaspin(text="Loading user personas..."):
+        self.update_personas("user")
+      return self.show_paginated_personas(filter_type="user")
+    elif result == "system":
+      with yaspin(text="Loading system personas..."):
+        self.update_personas("system")
+      return self.show_paginated_personas(filter_type="system")
+    
     return State.WORK_WITH_PERSONAS
 
   def update_replicas(self):
@@ -220,13 +244,13 @@ class StateMachine:
     else:
       print(message)
 
-  def update_personas(self):
+  def update_personas(self, persona_type: str = "system"):
     """Update the personas list from API"""
     if self.api_client is None:
       print("Error: API client not initialized. Please set your API key first.")
       return
 
-    success, message, fetched_personas = self.api_client.fetch_personas()
+    success, message, fetched_personas = self.api_client.fetch_personas(persona_type)
     if success:
       # Convert dictionary data to Persona objects
       self.personas = [Persona.from_dict(persona_data) for persona_data in fetched_personas]
@@ -433,23 +457,79 @@ class StateMachine:
     
     return self.show_paginated_replicas()
 
-  def show_paginated_personas(self, page=0, items_per_page=10):
+  def show_paginated_personas(self, page=0, items_per_page=10, filter_type="system"):
     """Show paginated list of personas with selection"""
     if not self.personas:
-      print("No personas found.")
-      input("Press Enter to continue...")
-      return State.WORK_WITH_PERSONAS
+      print(f"\nNo {filter_type} personas found.")
+      print("=" * 50)
+      
+      # Build choices list with options to change filter or go back
+      choices = []
+      choices.append(f"Current filter: {filter_type}")
+      choices.append("← Go Back")
+      
+      # Show menu
+      cli = Bullet(
+        prompt="No personas found. What would you like to do?",
+        choices=choices,
+        bullet="→",
+        margin=2,
+        shift=0,
+      )
+      result = cli.launch()
+      
+      # Handle filter selection
+      if result == f"Current filter: {filter_type}":
+        return State.SELECT_PERSONA_TYPE
+      elif result == "← Go Back":
+        return State.WORK_WITH_PERSONAS
+      
+      return self.show_paginated_personas(page, items_per_page, filter_type)
 
-    total_pages = (len(self.personas) - 1) // items_per_page
+    # Filter personas based on type (if we had persona_type field, we would filter here)
+    # For now, we'll show all personas since the API call already filtered them
+    filtered_personas = self.personas
+
+    if not filtered_personas:
+      print(f"\nNo personas found.")
+      print("=" * 50)
+      
+      # Build choices list with options to change filter or go back
+      choices = []
+      choices.append(f"Current filter: {filter_type}")
+      choices.append("← Go Back")
+      
+      # Show menu
+      cli = Bullet(
+        prompt="No personas found. What would you like to do?",
+        choices=choices,
+        bullet="→",
+        margin=2,
+        shift=0,
+      )
+      result = cli.launch()
+      
+      # Handle filter selection
+      if result == f"Current filter: {filter_type}":
+        return State.SELECT_PERSONA_TYPE
+      elif result == "← Go Back":
+        return State.WORK_WITH_PERSONAS
+      
+      return self.show_paginated_personas(page, items_per_page, filter_type)
+
+    total_pages = (len(filtered_personas) - 1) // items_per_page
     start_idx = page * items_per_page
-    end_idx = min(start_idx + items_per_page, len(self.personas))
-    current_personas = self.personas[start_idx:end_idx]
+    end_idx = min(start_idx + items_per_page, len(filtered_personas))
+    current_personas = filtered_personas[start_idx:end_idx]
 
-    print(f"\nPage {page + 1} of {total_pages + 1} ({len(self.personas)} total personas)")
+    print(f"\nPage {page + 1} of {total_pages + 1} ({len(filtered_personas)} {filter_type} personas)")
     print("=" * 50)
 
     # Build choices list
     choices = []
+    
+    # Add filter options at the top
+    choices.append(f"Current filter: {filter_type}")
     
     # Add navigation options
     if page > 0:
@@ -475,29 +555,33 @@ class StateMachine:
     )
     result = cli.launch()
 
+    # Handle filter selection
+    if result == f"Current filter: {filter_type}":
+      return State.SELECT_PERSONA_TYPE
+    
     # Handle navigation
     if result == "← Previous Page":
-      return self.show_paginated_personas(page - 1, items_per_page)
+      return self.show_paginated_personas(page - 1, items_per_page, filter_type)
     elif result == "→ Next Page":
-      return self.show_paginated_personas(page + 1, items_per_page)
+      return self.show_paginated_personas(page + 1, items_per_page, filter_type)
     elif result == "← Go Back":
       return State.WORK_WITH_PERSONAS
     
     # Handle persona selection
     if result.startswith("→"):
-      return self.show_paginated_personas(page, items_per_page)
+      return self.show_paginated_personas(page, items_per_page, filter_type)
     
     # Extract persona index from selection
     try:
       persona_idx = int(result.split('.')[0]) - 1
-      if 0 <= persona_idx < len(self.personas):
-        self.show_persona_details(self.personas[persona_idx])
+      if 0 <= persona_idx < len(filtered_personas):
+        self.show_persona_details(filtered_personas[persona_idx])
         input("Press Enter to continue...")
-        return self.show_paginated_personas(page, items_per_page)
+        return self.show_paginated_personas(page, items_per_page, filter_type)
     except (ValueError, IndexError):
       pass
     
-    return self.show_paginated_personas(page, items_per_page)
+    return self.show_paginated_personas(page, items_per_page, filter_type)
 
   def show_replica_details(self, replica):
     """Show detailed information for a specific replica"""
