@@ -7,7 +7,8 @@ class Replica:
   """Represents a Tavus Replica object"""
   
   def __init__(self, replica_id: str, replica_name: str, replica_type: str, 
-               status: str, training_progress: str, created_at: str,
+               status: str, training_progress: str, 
+               created_at: str, updated_at: str,
                thumbnail_video_url: Optional[str] = None):
     self.replica_id = replica_id
     self.replica_name = replica_name
@@ -15,6 +16,7 @@ class Replica:
     self.status = status
     self.training_progress = training_progress
     self.created_at = created_at
+    self.updated_at = updated_at
     self.thumbnail_video_url = thumbnail_video_url
   
   @classmethod
@@ -27,6 +29,7 @@ class Replica:
       status=data.get('status', ''),
       training_progress=data.get('training_progress', ''),
       created_at=data.get('created_at', ''),
+      updated_at=data.get('updated_at', ''),
       thumbnail_video_url=data.get('thumbnail_video_url')
     )
   
@@ -39,16 +42,17 @@ class Replica:
       'status': self.status,
       'training_progress': self.training_progress,
       'created_at': self.created_at,
+      'updated_at': self.updated_at,
       'thumbnail_video_url': self.thumbnail_video_url
     }
   
   def is_completed(self) -> bool:
     """Check if the replica training is completed"""
-    return self.status.lower() == 'completed'
+    return self.status == 'completed'
   
   def is_training(self) -> bool:
     """Check if the replica is currently training"""
-    return self.status.lower() == 'training'
+    return self.status == 'training'
   
   def get_training_percentage(self) -> int:
     """Extract training percentage from training_progress string (e.g., '100/100' -> 100)"""
@@ -64,6 +68,13 @@ class Replica:
     """Parse and return the created_at date as a datetime object"""
     try:
       return datetime.fromisoformat(self.created_at.replace('Z', '+00:00'))
+    except (ValueError, AttributeError):
+      return None
+
+  def get_updated_date(self) -> Optional[datetime]:
+    """Parse and return the updated_at date as a datetime object"""
+    try:
+      return datetime.fromisoformat(self.updated_at.replace('Z', '+00:00'))
     except (ValueError, AttributeError):
       return None
   
@@ -91,6 +102,10 @@ class Replica:
     created_date = self.get_created_date()
     if created_date:
       lines.append(f"  Created Date: {created_date.strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    updated_date = self.get_updated_date()
+    if updated_date:
+      lines.append(f"  Updated Date: {updated_date.strftime('%Y-%m-%d %H:%M:%S')}")
     
     training_pct = self.get_training_percentage()
     lines.append(f"  Training Percentage: {training_pct}%")
