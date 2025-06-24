@@ -287,14 +287,67 @@ class StateMachine:
       print("Error: API client not initialized. Please set your API key first.")
       return State.MAIN_MENU
     
-    cli = Input("Replica ID: ")
-    replica_id = cli.launch()
+    # Choose replica selection method
+    cli = Bullet(
+      prompt="How would you like to select a replica?",
+      choices=["Enter Replica ID manually", "Select from replica list"],
+      bullet="→",
+      margin=2,
+      shift=0,
+    )
+    selection_method = cli.launch()
+    
+    replica_id = None
+    
+    if selection_method == "Enter Replica ID manually":
+      cli = Input("Replica ID: ")
+      replica_id = cli.launch()
+    elif selection_method == "Select from replica list":
+      # Fetch and show replicas for selection
+      with yaspin(text="Loading replicas..."):
+        self.update_replicas()
+      
+      if not self.replicas:
+        print("No replicas found. Please create a replica first.")
+        input("Press Enter to continue...")
+        return State.WORK_WITH_VIDEOS
+      
+      # Show paginated replica selection
+      selected_replica = self._select_replica_for_video()
+      if selected_replica is None:
+        print("No replica selected. Returning to video creation.")
+        return State.WORK_WITH_VIDEOS
+      
+      replica_id = selected_replica.replica_id
+    
+    if not replica_id or not replica_id.strip():
+      print("Replica ID cannot be empty. Please try again.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_VIDEOS
 
     cli = Input("Script: ")
     script = cli.launch()
+    
+    if not script or not script.strip():
+      print("Script cannot be empty. Please try again.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_VIDEOS
 
     cli = YesNo("Fast Render [optional]: ", default="n")
     fast = cli.launch()
+    
+    # Show final confirmation
+    print(f"\nConfirm video creation:")
+    print(f"  Replica ID: {replica_id}")
+    print(f"  Script: {script[:100]}{'...' if len(script) > 100 else ''}")
+    print(f"  Fast Render: {'Yes' if fast else 'No'}")
+    print("=" * 50)
+    
+    cli = YesNo("Are you sure you want to create this video?", default="n")
+    if not cli.launch():
+      print("Video creation cancelled.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_VIDEOS
     
     video_data = {
       "replica_id": replica_id,
@@ -310,7 +363,114 @@ class StateMachine:
     else:
       print(f"Error creating video: {message}")
 
+    input("Press Enter to continue...")
     return State.WORK_WITH_VIDEOS
+
+  def _select_replica_for_video(self, page=0, filter_type="all"):
+    """Show paginated replica list for video creation selection"""
+    # Create a custom paginated list for replica selection
+    if not self.replicas:
+      return None
+    
+    # Filter replicas based on type
+    if filter_type == "user":
+      filtered_replicas = [r for r in self.replicas if r.replica_type == "user"]
+    elif filter_type == "system":
+      filtered_replicas = [r for r in self.replicas if r.replica_type == "system"]
+    else:  # "all"
+      filtered_replicas = self.replicas
+    
+    if not filtered_replicas:
+      # Show empty state with option to change filter
+      print(f"\nNo {filter_type} replicas found.")
+      print("=" * 50)
+      
+      choices = []
+      choices.append(f"Current filter: {filter_type}")
+      choices.append("← Go Back")
+      
+      cli = Bullet(
+        prompt="No replicas found. What would you like to do?",
+        choices=choices,
+        bullet="→",
+        margin=2,
+        shift=0,
+      )
+      result = cli.launch()
+      
+      if result == f"Current filter: {filter_type}":
+        # User wants to change filter, show filter selection
+        return self._select_replica_for_video_with_filter()
+      elif result == "← Go Back":
+        # User wants to go back, return None
+        return None
+      
+      # Default case - show filter selection
+      return self._select_replica_for_video_with_filter()
+    
+    # Create paginated list with filtered replicas
+    paginated_list = PaginatedList(filtered_replicas, 10)
+    paginated_list.set_page(page)
+    
+    def on_replica_select(replica):
+      # Return the selected replica for video creation
+      return PaginatedListResult(PaginationAction.ITEM_SELECTED, replica)
+    
+    def on_filter_change(filter_type):
+      # Handle filter change by returning to video creation to restart with new filter
+      return PaginatedListResult(PaginationAction.FILTER_CHANGED, filter_type)
+    
+    result = paginated_list.show(
+      title="Replicas",
+      filter_type=filter_type,
+      on_item_select=on_replica_select,
+      on_filter_change=on_filter_change,
+      show_filter_option=True
+    )
+    
+    # Handle the result
+    if result.action == PaginationAction.ITEM_SELECTED:
+      return result.data
+    elif result.action == PaginationAction.PREVIOUS_PAGE:
+      # Stay in replica selection with previous page
+      return self._select_replica_for_video(result.data, filter_type)
+    elif result.action == PaginationAction.NEXT_PAGE:
+      # Stay in replica selection with next page
+      return self._select_replica_for_video(result.data, filter_type)
+    elif result.action == PaginationAction.FILTER_CHANGED:
+      # Handle filter change by showing filter selection
+      return self._select_replica_for_video_with_filter()
+    elif result.action == PaginationAction.GO_BACK:
+      # User chose to go back, return None
+      return None
+    
+    # Default case - stay in replica selection
+    return self._select_replica_for_video(paginated_list.get_current_page(), filter_type)
+
+  def _select_replica_for_video_with_filter(self):
+    """Show replica selection with filter handling"""
+    # Show filter selection
+    print("\n=== Filter Replicas for Video Creation ===")
+    
+    cli = Bullet(
+      prompt="Select filter type:",
+      choices=["user only", "system only", "all replicas"],
+      bullet="→",
+      margin=2,
+      shift=0,
+    )
+    result = cli.launch()
+
+    # Map filter selection to filter type
+    if result == "user only":
+      filter_type = "user"
+    elif result == "system only":
+      filter_type = "system"
+    else:  # "all replicas"
+      filter_type = "all"
+    
+    # Start replica selection with the selected filter
+    return self._select_replica_for_video(page=0, filter_type=filter_type)
 
   def execute_list_videos(self):
     """Execute list videos functionality and return next state"""
