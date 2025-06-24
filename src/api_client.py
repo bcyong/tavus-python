@@ -129,14 +129,17 @@ class TavusAPIClient:
     except Exception as e:
       return False, f"Error renaming replica: {e}"
   
-  def fetch_personas(self) -> Tuple[bool, str, List[Dict]]:
+  def fetch_personas(self, persona_type: str = "system") -> Tuple[bool, str, List[Dict]]:
     """
     Fetch personas from Tavus API
     
+    Args:
+      persona_type: Filter personas by type. Options: "user", "system". Defaults to "system".
+      
     Returns:
       Tuple[bool, str, List[Dict]]: (success, message, personas_list)
     """
-    url = f"{self.base_url}/personas?limit=1000"
+    url = f"{self.base_url}/personas?limit=1000&persona_type={persona_type}"
     
     try:
       response = requests.request("GET", url, headers=self.headers)
