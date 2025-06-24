@@ -289,9 +289,31 @@ class StateMachine:
       section_names = ["User Replicas", "System Replicas"]
 
     if not filtered_replicas:
-      print(f"No {filter_type} replicas found.")
-      input("Press Enter to continue...")
-      return State.WORK_WITH_REPLICAS
+      print(f"\nNo replicas found.")
+      print("=" * 50)
+      
+      # Build choices list with just go back option
+      choices = []
+      choices.append(f"Current filter: {filter_type}")
+      choices.append("← Go Back")
+      
+      # Show menu
+      cli = Bullet(
+        prompt="No replicas found. What would you like to do?",
+        choices=choices,
+        bullet="→",
+        margin=2,
+        shift=0,
+      )
+      result = cli.launch()
+      
+      # Handle filter selection
+      if result == f"Current filter: {filter_type}":
+        return self.show_filter_selection()
+      elif result == "← Go Back":
+        return State.WORK_WITH_REPLICAS
+      
+      return self.show_paginated_replicas(page, items_per_page, filter_type)
 
     total_pages = (len(filtered_replicas) - 1) // items_per_page
     start_idx = page * items_per_page
@@ -313,24 +335,33 @@ class StateMachine:
     
     # Add replica items with section headers for "all" view
     if filter_type == "all":
-      current_idx = start_idx
-      for section_idx, (section_replicas, section_name) in enumerate(zip(sectioned_replicas, section_names)):
-        if section_replicas:  # Only show section if it has replicas
-          # Check if this section has items on current page
-          section_start = current_idx
-          section_end = current_idx + len(section_replicas)
-          
-          if section_start < end_idx and section_end > start_idx:
-            # Add section header
-            choices.append(f"--- {section_name} ---")
-            
-            # Add items from this section that are on current page
-            for i, replica in enumerate(section_replicas):
-              global_idx = current_idx + i + 1
-              if start_idx < global_idx <= end_idx:
-                choices.append(f"{global_idx}. {replica.display_short()}")
-          
-          current_idx += len(section_replicas)
+      # Get all replicas in order: user first, then system
+      user_replicas = [r for r in self.replicas if r.replica_type == "user"]
+      system_replicas = [r for r in self.replicas if r.replica_type == "system"]
+      all_replicas = user_replicas + system_replicas
+      
+      # Get the replicas for current page
+      page_replicas = all_replicas[start_idx:end_idx]
+      
+      # Track which section we're in
+      user_count = len(user_replicas)
+      current_user_idx = 0
+      current_system_idx = 0
+      
+      for i, replica in enumerate(page_replicas):
+        global_idx = start_idx + i + 1
+        
+        # Check if we need to add section headers
+        if replica.replica_type == "user":
+          if current_user_idx == 0:
+            choices.append("--- User Replicas ---")
+          current_user_idx += 1
+        else:  # system replica
+          if current_system_idx == 0:
+            choices.append("--- System Replicas ---")
+          current_system_idx += 1
+        
+        choices.append(f"{global_idx}. {replica.display_short()}")
     else:
       # Single section view (user or system only)
       for i, replica in enumerate(current_replicas, start_idx + 1):
