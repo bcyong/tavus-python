@@ -65,7 +65,7 @@ class StateMachine:
     cli = Bullet(
       prompt="What would you like to do?",
       choices=["Set API Key", "Work with Replicas", "Work with Personas", "Exit"],
-      bullet="🧑",
+      bullet="→",
       margin=2,
       shift=0,
     )
