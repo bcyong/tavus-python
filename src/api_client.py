@@ -243,7 +243,7 @@ class TavusAPIClient:
     try:
       response = requests.request("POST", url, headers=self.headers, json=video_data)
       
-      if response.status_code == 201:
+      if response.status_code == 200:
         generated_video = response.json()
         return True, "Successfully generated video", generated_video
       else:

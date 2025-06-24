@@ -281,8 +281,34 @@ class StateMachine:
   def execute_create_video(self):
     """Execute create video functionality and return next state"""
     print("\n=== Create Video ===")
-    print("Create video functionality will be implemented here...")
-    # TODO: Implement create video logic
+    
+    if self.api_client is None:
+      print("Error: API client not initialized. Please set your API key first.")
+      return State.MAIN_MENU
+    
+    cli = Input("Replica ID: ")
+    replica_id = cli.launch()
+
+    cli = Input("Script: ")
+    script = cli.launch()
+
+    cli = YesNo("Fast Render [optional]: ", default="n")
+    fast = cli.launch()
+    
+    video_data = {
+      "replica_id": replica_id,
+      "script": script,
+      "fast": "true" if fast else "false"
+    }
+
+    with yaspin(text="Submitting video request..."):
+      success, message, created_video = self.api_client.generate_video(video_data)
+
+    if success and created_video:
+      print(f"Request submitted successfully. Video ID: {created_video['video_id']}")
+    else:
+      print(f"Error creating video: {message}")
+
     return State.WORK_WITH_VIDEOS
 
   def execute_list_videos(self):
