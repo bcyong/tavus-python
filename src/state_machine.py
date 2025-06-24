@@ -167,8 +167,7 @@ class StateMachine:
       print("Error: API client not initialized. Please set your API key first.")
       return State.MAIN_MENU
 
-    self.print_replicas()
-    return State.WORK_WITH_REPLICAS
+    return self.show_paginated_replicas()
 
   def execute_modify_replica(self):
     """Execute modify replica functionality and return next state"""
@@ -199,8 +198,7 @@ class StateMachine:
       print("Error: API client not initialized. Please set your API key first.")
       return State.MAIN_MENU
 
-    self.print_personas()
-    return State.WORK_WITH_PERSONAS
+    return self.show_paginated_personas()
 
   def execute_delete_persona(self):
     """Execute delete persona functionality and return next state"""
@@ -266,3 +264,151 @@ class StateMachine:
     print(f"Found {len(self.personas)} persona(s):\n")
     for i, persona in enumerate(self.personas, 1):
       print(f"{i}. {persona.display_short()}")
+
+  def show_paginated_replicas(self, page=0, items_per_page=10):
+    """Show paginated list of replicas with selection"""
+    if not self.replicas:
+      print("No replicas found.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_REPLICAS
+
+    total_pages = (len(self.replicas) - 1) // items_per_page
+    start_idx = page * items_per_page
+    end_idx = min(start_idx + items_per_page, len(self.replicas))
+    current_replicas = self.replicas[start_idx:end_idx]
+
+    print(f"\nPage {page + 1} of {total_pages + 1} ({len(self.replicas)} total replicas)")
+    print("=" * 50)
+
+    # Build choices list
+    choices = []
+    
+    # Add navigation options
+    if page > 0:
+      choices.append("← Previous Page")
+    
+    # Add replica items
+    for i, replica in enumerate(current_replicas, start_idx + 1):
+      choices.append(f"{i}. {replica.display_short()}")
+    
+    # Add navigation options
+    if page < total_pages:
+      choices.append("→ Next Page")
+    
+    choices.append("← Go Back")
+
+    # Show menu
+    cli = Bullet(
+      prompt="Select a replica to view details or navigate:",
+      choices=choices,
+      bullet="→",
+      margin=2,
+      shift=0,
+    )
+    result = cli.launch()
+
+    # Handle navigation
+    if result == "← Previous Page":
+      return self.show_paginated_replicas(page - 1, items_per_page)
+    elif result == "→ Next Page":
+      return self.show_paginated_replicas(page + 1, items_per_page)
+    elif result == "← Go Back":
+      return State.WORK_WITH_REPLICAS
+    
+    # Handle replica selection
+    if result.startswith("→"):
+      return self.show_paginated_replicas(page, items_per_page)
+    
+    # Extract replica index from selection
+    try:
+      replica_idx = int(result.split('.')[0]) - 1
+      if 0 <= replica_idx < len(self.replicas):
+        self.show_replica_details(self.replicas[replica_idx])
+        input("Press Enter to continue...")
+        return self.show_paginated_replicas(page, items_per_page)
+    except (ValueError, IndexError):
+      pass
+    
+    return self.show_paginated_replicas(page, items_per_page)
+
+  def show_paginated_personas(self, page=0, items_per_page=10):
+    """Show paginated list of personas with selection"""
+    if not self.personas:
+      print("No personas found.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_PERSONAS
+
+    total_pages = (len(self.personas) - 1) // items_per_page
+    start_idx = page * items_per_page
+    end_idx = min(start_idx + items_per_page, len(self.personas))
+    current_personas = self.personas[start_idx:end_idx]
+
+    print(f"\nPage {page + 1} of {total_pages + 1} ({len(self.personas)} total personas)")
+    print("=" * 50)
+
+    # Build choices list
+    choices = []
+    
+    # Add navigation options
+    if page > 0:
+      choices.append("← Previous Page")
+    
+    # Add persona items
+    for i, persona in enumerate(current_personas, start_idx + 1):
+      choices.append(f"{i}. {persona.display_short()}")
+    
+    # Add navigation options
+    if page < total_pages:
+      choices.append("→ Next Page")
+    
+    choices.append("← Go Back")
+
+    # Show menu
+    cli = Bullet(
+      prompt="Select a persona to view details or navigate:",
+      choices=choices,
+      bullet="→",
+      margin=2,
+      shift=0,
+    )
+    result = cli.launch()
+
+    # Handle navigation
+    if result == "← Previous Page":
+      return self.show_paginated_personas(page - 1, items_per_page)
+    elif result == "→ Next Page":
+      return self.show_paginated_personas(page + 1, items_per_page)
+    elif result == "← Go Back":
+      return State.WORK_WITH_PERSONAS
+    
+    # Handle persona selection
+    if result.startswith("→"):
+      return self.show_paginated_personas(page, items_per_page)
+    
+    # Extract persona index from selection
+    try:
+      persona_idx = int(result.split('.')[0]) - 1
+      if 0 <= persona_idx < len(self.personas):
+        self.show_persona_details(self.personas[persona_idx])
+        input("Press Enter to continue...")
+        return self.show_paginated_personas(page, items_per_page)
+    except (ValueError, IndexError):
+      pass
+    
+    return self.show_paginated_personas(page, items_per_page)
+
+  def show_replica_details(self, replica):
+    """Show detailed information for a specific replica"""
+    print("\n" + "=" * 60)
+    print("REPLICA DETAILS")
+    print("=" * 60)
+    print(replica.display_verbose())
+    print("=" * 60)
+
+  def show_persona_details(self, persona):
+    """Show detailed information for a specific persona"""
+    print("\n" + "=" * 60)
+    print("PERSONA DETAILS")
+    print("=" * 60)
+    print(persona.display_verbose())
+    print("=" * 60)
