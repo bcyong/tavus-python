@@ -335,13 +335,13 @@ class TavusAPIClient:
     Returns:
       Tuple[bool, str]: (success, message)
     """
-    url = f"{self.base_url}/videos/{video_id}"
+    url = f"{self.base_url}/videos/{video_id}/name"
     payload = {"video_name": new_name}
     
     try:
       response = requests.request("PATCH", url, headers=self.headers, json=payload)
       
-      if response.status_code == 200:
+      if response.status_code == 204:
         return True, "Successfully renamed video"
       else:
         return False, f"Error: HTTP {response.status_code} - {response.text}"
