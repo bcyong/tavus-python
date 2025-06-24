@@ -130,11 +130,16 @@ class Persona:
     # Add context preview
     lines.append(f"  Context: {self.get_context_preview(1000)}")
     
-    # Add layer information
+    # Add layer information with full data
     if self.layers:
       lines.append(f"  Layers: {len(self.layers)} configured")
-      for layer_name in self.layers.keys():
-        lines.append(f"    - {layer_name}")
+      for layer_name, layer_data in self.layers.items():
+        lines.append(f"    - {layer_name}:")
+        if isinstance(layer_data, dict):
+          for key, value in layer_data.items():
+            lines.append(f"      {key}: {value}")
+        else:
+          lines.append(f"      {layer_data}")
     else:
       lines.append(f"  Layers: None configured")
     
