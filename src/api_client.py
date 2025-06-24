@@ -18,7 +18,7 @@ class TavusAPIClient:
     Returns:
       Tuple[bool, str, List[Dict]]: (success, message, replicas_list)
     """
-    url = f"{self.base_url}/replicas"
+    url = f"{self.base_url}/replicas?verbose=true"
     
     try:
       response = requests.request("GET", url, headers=self.headers)
@@ -43,7 +43,7 @@ class TavusAPIClient:
     Returns:
       Tuple[bool, str, Optional[Dict]]: (success, message, replica_data)
     """
-    url = f"{self.base_url}/replicas/{replica_id}"
+    url = f"{self.base_url}/replicas/{replica_id}?verbose=true"
     
     try:
       response = requests.request("GET", url, headers=self.headers)
