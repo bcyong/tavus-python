@@ -2,6 +2,7 @@
 
 import requests
 from typing import Tuple, List, Dict, Optional
+from models import Replica, Persona, Video
 
 class TavusAPIClient:
   """Client for interacting with the Tavus API"""
@@ -11,7 +12,7 @@ class TavusAPIClient:
     self.base_url = "https://tavusapi.com/v2"
     self.headers = {"x-api-key": api_key}
   
-  def list_replicas(self, limit: int = 1000) -> Tuple[bool, str, List[Dict]]:
+  def list_replicas(self, limit: int = 1000) -> Tuple[bool, str, List[Replica]]:
     """
     List replicas from Tavus API
     
@@ -19,7 +20,7 @@ class TavusAPIClient:
       limit: The number of replicas to return. Default is 1000.
       
     Returns:
-      Tuple[bool, str, List[Dict]]: (success, message, replicas_list)
+      Tuple[bool, str, List[Replica]]: (success, message, replicas_list)
     """
     url = f"{self.base_url}/replicas?verbose=true&limit={limit}"
     
@@ -28,7 +29,8 @@ class TavusAPIClient:
       
       if response.status_code == 200:
         response_data = response.json()
-        replicas = response_data.get('data', [])
+        replicas_data = response_data.get('data', [])
+        replicas = [Replica.from_dict(replica_data) for replica_data in replicas_data]
         return True, f"Successfully fetched {len(replicas)} replica(s)", replicas
       else:
         return False, f"Error: HTTP {response.status_code} - {response.text}", []
@@ -36,7 +38,7 @@ class TavusAPIClient:
     except Exception as e:
       return False, f"Error fetching replicas: {e}", []
   
-  def get_replica(self, replica_id: str) -> Tuple[bool, str, Optional[Dict]]:
+  def get_replica(self, replica_id: str) -> Tuple[bool, str, Optional[Replica]]:
     """
     Get a specific replica by ID
     
@@ -44,7 +46,7 @@ class TavusAPIClient:
       replica_id: The ID of the replica to fetch
       
     Returns:
-      Tuple[bool, str, Optional[Dict]]: (success, message, replica_data)
+      Tuple[bool, str, Optional[Replica]]: (success, message, replica_data)
     """
     url = f"{self.base_url}/replicas/{replica_id}?verbose=true"
     
@@ -53,14 +55,15 @@ class TavusAPIClient:
       
       if response.status_code == 200:
         replica_data = response.json()
-        return True, "Successfully fetched replica", replica_data
+        replica = Replica.from_dict(replica_data)
+        return True, "Successfully fetched replica", replica
       else:
         return False, f"Error: HTTP {response.status_code} - {response.text}", None
         
     except Exception as e:
       return False, f"Error fetching replica: {e}", None
   
-  def create_replica(self, replica_data: Dict) -> Tuple[bool, str, Optional[Dict]]:
+  def create_replica(self, replica_data: Dict) -> Tuple[bool, str, Optional[Replica]]:
     """
     Create a new replica
     
@@ -68,7 +71,7 @@ class TavusAPIClient:
       replica_data: Dictionary containing replica creation parameters
       
     Returns:
-      Tuple[bool, str, Optional[Dict]]: (success, message, created_replica_data)
+      Tuple[bool, str, Optional[Replica]]: (success, message, created_replica_data)
     """
     url = f"{self.base_url}/replicas"
     
@@ -76,8 +79,9 @@ class TavusAPIClient:
       response = requests.request("POST", url, headers=self.headers, json=replica_data)
       
       if response.status_code == 201:
-        created_replica = response.json()
-        return True, "Successfully created replica", created_replica
+        created_replica_data = response.json()
+        replica = Replica.from_dict(created_replica_data)
+        return True, "Successfully created replica", replica
       else:
         return False, f"Error: HTTP {response.status_code} - {response.text}", None
         
@@ -132,7 +136,7 @@ class TavusAPIClient:
     except Exception as e:
       return False, f"Error renaming replica: {e}"
   
-  def list_personas(self, persona_type: str = "system", limit: int = 1000) -> Tuple[bool, str, List[Dict]]:
+  def list_personas(self, persona_type: str = "system", limit: int = 1000) -> Tuple[bool, str, List[Persona]]:
     """
     Fetch personas from Tavus API
     
@@ -140,7 +144,7 @@ class TavusAPIClient:
       persona_type: Filter personas by type. Options: "user", "system". Defaults to "system".
       
     Returns:
-      Tuple[bool, str, List[Dict]]: (success, message, personas_list)
+      Tuple[bool, str, List[Persona]]: (success, message, personas_list)
     """
     url = f"{self.base_url}/personas?limit={limit}&persona_type={persona_type}"
     
@@ -149,7 +153,8 @@ class TavusAPIClient:
       
       if response.status_code == 200:
         response_data = response.json()
-        personas = response_data.get('data', [])
+        personas_data = response_data.get('data', [])
+        personas = [Persona.from_dict(persona_data) for persona_data in personas_data]
         return True, f"Successfully fetched {len(personas)} persona(s)", personas
       else:
         return False, f"Error: HTTP {response.status_code} - {response.text}", []
@@ -157,7 +162,7 @@ class TavusAPIClient:
     except Exception as e:
       return False, f"Error fetching personas: {e}", []
   
-  def create_persona(self, persona_data: Dict) -> Tuple[bool, str, Optional[Dict]]:
+  def create_persona(self, persona_data: Dict) -> Tuple[bool, str, Optional[Persona]]:
     """
     Create a new persona
     
@@ -165,7 +170,7 @@ class TavusAPIClient:
       persona_data: Dictionary containing persona creation parameters
       
     Returns:
-      Tuple[bool, str, Optional[Dict]]: (success, message, created_persona_data)
+      Tuple[bool, str, Optional[Persona]]: (success, message, created_persona_data)
     """
     url = f"{self.base_url}/personas"
     
@@ -173,8 +178,9 @@ class TavusAPIClient:
       response = requests.request("POST", url, headers=self.headers, json=persona_data)
       
       if response.status_code == 201:
-        created_persona = response.json()
-        return True, "Successfully created persona", created_persona
+        created_persona_data = response.json()
+        persona = Persona.from_dict(created_persona_data)
+        return True, "Successfully created persona", persona
       else:
         return False, f"Error: HTTP {response.status_code} - {response.text}", None
         
@@ -228,7 +234,7 @@ class TavusAPIClient:
     except Exception as e:
       return False, f"Error updating persona: {e}"
   
-  def generate_video(self, video_data: Dict) -> Tuple[bool, str, Optional[Dict]]:
+  def generate_video(self, video_data: Dict) -> Tuple[bool, str, Optional[Video]]:
     """
     Generate a new video
     
@@ -236,7 +242,7 @@ class TavusAPIClient:
       video_data: Dictionary containing video generation parameters
       
     Returns:
-      Tuple[bool, str, Optional[Dict]]: (success, message, generated_video_data)
+      Tuple[bool, str, Optional[Video]]: (success, message, generated_video_data)
     """
     url = f"{self.base_url}/videos"
     
@@ -244,15 +250,16 @@ class TavusAPIClient:
       response = requests.request("POST", url, headers=self.headers, json=video_data)
       
       if response.status_code == 200:
-        generated_video = response.json()
-        return True, "Successfully generated video", generated_video
+        generated_video_data = response.json()
+        video = Video.from_dict(generated_video_data)
+        return True, "Successfully generated video", video
       else:
         return False, f"Error: HTTP {response.status_code} - {response.text}", None
         
     except Exception as e:
       return False, f"Error generating video: {e}", None
 
-  def get_video(self, video_id: str) -> Tuple[bool, str, Optional[Dict]]:
+  def get_video(self, video_id: str) -> Tuple[bool, str, Optional[Video]]:
     """
     Get a specific video by ID
     
@@ -260,7 +267,7 @@ class TavusAPIClient:
       video_id: The ID of the video to fetch
       
     Returns:
-      Tuple[bool, str, Optional[Dict]]: (success, message, video_data)
+      Tuple[bool, str, Optional[Video]]: (success, message, video_data)
     """
     url = f"{self.base_url}/videos/{video_id}"
     
@@ -269,14 +276,15 @@ class TavusAPIClient:
       
       if response.status_code == 200:
         video_data = response.json()
-        return True, "Successfully fetched video", video_data
+        video = Video.from_dict(video_data)
+        return True, "Successfully fetched video", video
       else:
         return False, f"Error: HTTP {response.status_code} - {response.text}", None
         
     except Exception as e:
       return False, f"Error fetching video: {e}", None
 
-  def list_videos(self, limit: int = 1000) -> Tuple[bool, str, List[Dict]]:
+  def list_videos(self, limit: int = 1000) -> Tuple[bool, str, List[Video]]:
     """
     List videos from Tavus API
     
@@ -284,7 +292,7 @@ class TavusAPIClient:
       limit: The number of videos to return. Default is 1000.
       
     Returns:
-      Tuple[bool, str, List[Dict]]: (success, message, videos_list)
+      Tuple[bool, str, List[Video]]: (success, message, videos_list)
     """
     url = f"{self.base_url}/videos?limit={limit}"
     
@@ -293,7 +301,8 @@ class TavusAPIClient:
       
       if response.status_code == 200:
         response_data = response.json()
-        videos = response_data.get('data', [])
+        videos_data = response_data.get('data', [])
+        videos = [Video.from_dict(video_data) for video_data in videos_data]
         return True, f"Successfully fetched {len(videos)} video(s)", videos
       else:
         return False, f"Error: HTTP {response.status_code} - {response.text}", []

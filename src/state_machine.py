@@ -398,7 +398,7 @@ class StateMachine:
     success, message, fetched_replicas = self.api_client.list_replicas()
     if success:
       # Convert dictionary data to Replica objects
-      self.replicas = [Replica.from_dict(replica_data) for replica_data in fetched_replicas]
+      self.replicas = fetched_replicas
     else:
       print(message)
 
@@ -411,7 +411,7 @@ class StateMachine:
     success, message, fetched_personas = self.api_client.list_personas(persona_type)
     if success:
       # Convert dictionary data to Persona objects
-      self.personas = [Persona.from_dict(persona_data) for persona_data in fetched_personas]
+      self.personas = fetched_personas
     else:
       print(message)
 
@@ -424,7 +424,7 @@ class StateMachine:
     success, message, fetched_videos = self.api_client.list_videos()
     if success:
       # Convert dictionary data to Video objects
-      self.videos = [Video.from_dict(video_data) for video_data in fetched_videos]
+      self.videos = fetched_videos
     else:
       print(message)
 
