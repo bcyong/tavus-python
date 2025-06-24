@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
+from timeit import Timer
 from bullet import Input, Bullet, YesNo
 import sys
 import os
 from enum import Enum
 from api_client import TavusAPIClient
+from yaspin import yaspin
+import time
 
 # State enum
 class State(Enum):
@@ -32,8 +35,13 @@ def main():
   print("Welcome to the Tavus Python CLI Tool!")
 
   set_initial_api_key()
-  update_replicas()
-  update_personas()
+
+  print("Updating replicas and personas...")
+  with yaspin(text="Loading replicas..."):
+    update_replicas()
+  with yaspin(text="Loading personas..."):
+    update_personas()
+  print("Initialization complete!")
 
   # State machine loop
   while current_state != State.EXIT:
@@ -130,6 +138,9 @@ def execute_work_with_replicas():
   """Execute work with replicas menu and return next state"""
   print("\n=== Work with Replicas ===")
   
+  with yaspin(text="Loading replicas..."):
+    update_replicas()
+
   cli = Bullet(
     prompt="What would you like to do with Replicas?",
     choices=["Create a Replica", "List Replicas", "Modify a Replica", "Delete a Replica", "Back to Main Menu"],
@@ -156,6 +167,9 @@ def execute_work_with_personas():
   """Execute work with personas menu and return next state"""
   print("\n=== Work with Personas ===")
   
+  with yaspin(text="Loading personas..."):
+    update_personas()
+    
   cli = Bullet(
     prompt="What would you like to do with Personas?",
     choices=["Create a Persona", "List Personas", "Delete a Persona", "Back to Main Menu"],
@@ -259,7 +273,7 @@ def update_replicas():
 
   if api_client is None:
     print("Error: API client not initialized. Please set your API key first.")
-  return
+    return
 
   success, message, fetched_replicas = api_client.fetch_replicas()
   if success:
@@ -273,7 +287,7 @@ def update_personas():
   
   if api_client is None:
     print("Error: API client not initialized. Please set your API key first.")
-  return
+    return
 
   success, message, fetched_personas = api_client.fetch_personas()
   if success:
