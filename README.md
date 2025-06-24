@@ -7,7 +7,7 @@ A Python CLI wrapper for the Tavus API that provides an interactive command-line
 - **Interactive CLI**: Easy-to-use command-line interface with state machine navigation
 - **Replica Management**: Create, list, rename, and delete replicas
 - **Persona Management**: Manage system and user personas
-- **Video Generation**: Generate videos using replicas and personas
+- **Video Generation**: Generate videos using replicas
 - **Video Management**: List, rename, and delete videos
 - **API Key Management**: Secure API key handling with file-based storage
 
@@ -89,6 +89,7 @@ tavus-python/
 │       ├── replica.py       # Replica data models
 │       └── video.py         # Video data models
 ├── README.md
+├── requirements.txt         # Python dependencies
 └── .tavus_api_key          # API key file (create this)
 ```
 
