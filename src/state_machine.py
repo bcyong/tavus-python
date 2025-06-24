@@ -5,6 +5,7 @@ from yaspin import yaspin
 from enum import Enum
 from api_client import TavusAPIClient
 from models import Replica, Persona, Video
+from paginated_list import PaginatedList, SectionedPaginatedList, PaginatedListResult, PaginationAction
 
 # State enum
 class State(Enum):
@@ -305,7 +306,7 @@ class StateMachine:
       success, message, created_video = self.api_client.generate_video(video_data)
 
     if success and created_video:
-      print(f"Request submitted successfully. Video ID: {created_video['video_id']}")
+      print(f"Request submitted successfully. Video ID: {created_video.video_id}")
     else:
       print(f"Error creating video: {message}")
 
@@ -339,7 +340,10 @@ class StateMachine:
     cli = YesNo("Are you sure you want to delete this video?", default="n")
     if cli.launch():
       with yaspin(text="Deleting video..."):
-        success, message = self.api_client.delete_video(video.video_id)
+        if self.api_client:
+          success, message = self.api_client.delete_video(video.video_id)
+        else:
+          success, message = False, "API client not initialized"
 
       if success:
         print(f"Video deleted successfully")
@@ -464,127 +468,53 @@ class StateMachine:
       section_names = ["User Replicas", "System Replicas"]
 
     if not filtered_replicas:
-      print(f"\nNo replicas found.")
-      print("=" * 50)
-      
-      # Build choices list with just go back option
-      choices = []
-      choices.append(f"Current filter: {filter_type}")
-      choices.append("← Go Back")
-      
-      # Show menu
-      cli = Bullet(
-        prompt="No replicas found. What would you like to do?",
-        choices=choices,
-        bullet="→",
-        margin=2,
-        shift=0,
+      # Create empty paginated list for proper empty state handling
+      paginated_list = PaginatedList([])
+      result = paginated_list.show(
+        title="Replicas",
+        filter_type=filter_type,
+        on_filter_change=self._handle_replica_filter_change
       )
-      result = cli.launch()
-      
-      # Handle filter selection
-      if result == f"Current filter: {filter_type}":
-        return self.show_replica_filter_selection()
-      elif result == "← Go Back":
-        return State.WORK_WITH_REPLICAS
-      
-      return self.show_paginated_replicas(page, items_per_page, filter_type)
+      return self._handle_replica_pagination_result(result, items_per_page, filter_type)
 
-    total_pages = (len(filtered_replicas) - 1) // items_per_page
-    start_idx = page * items_per_page
-    end_idx = min(start_idx + items_per_page, len(filtered_replicas))
-    current_replicas = filtered_replicas[start_idx:end_idx]
+    # Create sectioned paginated list
+    paginated_list = SectionedPaginatedList(filtered_replicas, items_per_page)
+    paginated_list.set_sections(sectioned_replicas, section_names)
+    paginated_list.set_page(page)
 
-    print(f"\nPage {page + 1} of {total_pages + 1} ({len(filtered_replicas)} {filter_type} replicas)")
-    print("=" * 50)
+    def on_replica_select(replica):
+      self.show_replica_details(replica)
+      input("Press Enter to continue...")
+      # Return the current page so we stay on the same page
+      return PaginatedListResult(PaginationAction.NO_ACTION, paginated_list.get_current_page())
 
-    # Build choices list
-    choices = []
-    
-    # Add filter options at the top
-    choices.append(f"Current filter: {filter_type}")
-    
-    # Add navigation options
-    if page > 0:
-      choices.append("← Previous Page")
-    
-    # Add replica items with section headers for "all" view
-    if filter_type == "all":
-      # Get all replicas in order: user first, then system
-      user_replicas = [r for r in self.replicas if r.replica_type == "user"]
-      system_replicas = [r for r in self.replicas if r.replica_type == "system"]
-      all_replicas = user_replicas + system_replicas
-      
-      # Get the replicas for current page
-      page_replicas = all_replicas[start_idx:end_idx]
-      
-      # Track which section we're in
-      user_count = len(user_replicas)
-      current_user_idx = 0
-      current_system_idx = 0
-      
-      for i, replica in enumerate(page_replicas):
-        global_idx = start_idx + i + 1
-        
-        # Check if we need to add section headers
-        if replica.replica_type == "user":
-          if current_user_idx == 0:
-            choices.append("--- User Replicas ---")
-          current_user_idx += 1
-        else:  # system replica
-          if current_system_idx == 0:
-            choices.append("--- System Replicas ---")
-          current_system_idx += 1
-        
-        choices.append(f"{global_idx}. {replica.display_short()}")
-    else:
-      # Single section view (user or system only)
-      for i, replica in enumerate(current_replicas, start_idx + 1):
-        choices.append(f"{i}. {replica.display_short()}")
-    
-    # Add navigation options
-    if page < total_pages:
-      choices.append("→ Next Page")
-    
-    choices.append("← Go Back")
-
-    # Show menu
-    cli = Bullet(
-      prompt="Select a replica to view details or navigate:",
-      choices=choices,
-      bullet="→",
-      margin=2,
-      shift=0,
+    result = paginated_list.show(
+      title="Replicas",
+      filter_type=filter_type,
+      on_item_select=on_replica_select,
+      on_filter_change=self._handle_replica_filter_change
     )
-    result = cli.launch()
 
-    # Handle filter selection
-    if result == f"Current filter: {filter_type}":
-      return self.show_replica_filter_selection()
-    
-    # Handle navigation
-    if result == "← Previous Page":
-      return self.show_paginated_replicas(page - 1, items_per_page, filter_type)
-    elif result == "→ Next Page":
-      return self.show_paginated_replicas(page + 1, items_per_page, filter_type)
-    elif result == "← Go Back":
+    return self._handle_replica_pagination_result(result, items_per_page, filter_type)
+
+  def _handle_replica_filter_change(self, filter_type):
+    """Handle replica filter change"""
+    return PaginatedListResult(PaginationAction.FILTER_CHANGED, filter_type)
+
+  def _handle_replica_pagination_result(self, result, items_per_page, filter_type):
+    """Handle pagination result for replicas"""
+    if result.action == PaginationAction.PREVIOUS_PAGE:
+      return self.show_paginated_replicas(result.data, items_per_page, filter_type)
+    elif result.action == PaginationAction.NEXT_PAGE:
+      return self.show_paginated_replicas(result.data, items_per_page, filter_type)
+    elif result.action == PaginationAction.GO_BACK:
       return State.WORK_WITH_REPLICAS
-    
-    # Handle replica selection
-    if result.startswith("→") or result.startswith("---"):
-      return self.show_paginated_replicas(page, items_per_page, filter_type)
-    
-    # Extract replica index from selection
-    try:
-      replica_idx = int(result.split('.')[0]) - 1
-      if 0 <= replica_idx < len(filtered_replicas):
-        self.show_replica_details(filtered_replicas[replica_idx])
-        input("Press Enter to continue...")
-        return self.show_paginated_replicas(page, items_per_page, filter_type)
-    except (ValueError, IndexError):
-      pass
-    
-    return self.show_paginated_replicas(page, items_per_page, filter_type)
+    elif result.action == PaginationAction.FILTER_CHANGED:
+      return self.show_replica_filter_selection()
+    else:
+      # Use the page from result.data if available, otherwise default to 0
+      current_page = result.data if result.data is not None else 0
+      return self.show_paginated_replicas(current_page, items_per_page, filter_type)
 
   def show_replica_filter_selection(self):
     """Show filter selection for replicas"""
@@ -611,128 +541,52 @@ class StateMachine:
   def show_paginated_personas(self, page=0, items_per_page=10, filter_type="system"):
     """Show paginated list of personas with selection"""
     if not self.personas:
-      print(f"\nNo {filter_type} personas found.")
-      print("=" * 50)
-      
-      # Build choices list with options to change filter or go back
-      choices = []
-      choices.append(f"Current filter: {filter_type}")
-      choices.append("← Go Back")
-      
-      # Show menu
-      cli = Bullet(
-        prompt="No personas found. What would you like to do?",
-        choices=choices,
-        bullet="→",
-        margin=2,
-        shift=0,
+      # Create empty paginated list for proper empty state handling
+      paginated_list = PaginatedList([])
+      result = paginated_list.show(
+        title="Personas",
+        filter_type=filter_type,
+        on_filter_change=self._handle_persona_filter_change
       )
-      result = cli.launch()
-      
-      # Handle filter selection
-      if result == f"Current filter: {filter_type}":
-        return State.SELECT_PERSONA_TYPE
-      elif result == "← Go Back":
-        return State.WORK_WITH_PERSONAS
-      
-      return self.show_paginated_personas(page, items_per_page, filter_type)
+      return self._handle_persona_pagination_result(result, items_per_page, filter_type)
 
-    # Filter personas based on type (if we had persona_type field, we would filter here)
-    # For now, we'll show all personas since the API call already filtered them
-    filtered_personas = self.personas
+    # Create paginated list
+    paginated_list = PaginatedList(self.personas, items_per_page)
+    paginated_list.set_page(page)
 
-    if not filtered_personas:
-      print(f"\nNo personas found.")
-      print("=" * 50)
-      
-      # Build choices list with options to change filter or go back
-      choices = []
-      choices.append(f"Current filter: {filter_type}")
-      choices.append("← Go Back")
-      
-      # Show menu
-      cli = Bullet(
-        prompt="No personas found. What would you like to do?",
-        choices=choices,
-        bullet="→",
-        margin=2,
-        shift=0,
-      )
-      result = cli.launch()
-      
-      # Handle filter selection
-      if result == f"Current filter: {filter_type}":
-        return State.SELECT_PERSONA_TYPE
-      elif result == "← Go Back":
-        return State.WORK_WITH_PERSONAS
-      
-      return self.show_paginated_personas(page, items_per_page, filter_type)
+    def on_persona_select(persona):
+      self.show_persona_details(persona)
+      input("Press Enter to continue...")
+      # Return the current page so we stay on the same page
+      return PaginatedListResult(PaginationAction.NO_ACTION, paginated_list.get_current_page())
 
-    total_pages = (len(filtered_personas) - 1) // items_per_page
-    start_idx = page * items_per_page
-    end_idx = min(start_idx + items_per_page, len(filtered_personas))
-    current_personas = filtered_personas[start_idx:end_idx]
-
-    print(f"\nPage {page + 1} of {total_pages + 1} ({len(filtered_personas)} {filter_type} personas)")
-    print("=" * 50)
-
-    # Build choices list
-    choices = []
-    
-    # Add filter options at the top
-    choices.append(f"Current filter: {filter_type}")
-    
-    # Add navigation options
-    if page > 0:
-      choices.append("← Previous Page")
-    
-    # Add persona items
-    for i, persona in enumerate(current_personas, start_idx + 1):
-      choices.append(f"{i}. {persona.display_short()}")
-    
-    # Add navigation options
-    if page < total_pages:
-      choices.append("→ Next Page")
-    
-    choices.append("← Go Back")
-
-    # Show menu
-    cli = Bullet(
-      prompt="Select a persona to view details or navigate:",
-      choices=choices,
-      bullet="→",
-      margin=2,
-      shift=0,
+    result = paginated_list.show(
+      title="Personas",
+      filter_type=filter_type,
+      on_item_select=on_persona_select,
+      on_filter_change=self._handle_persona_filter_change
     )
-    result = cli.launch()
 
-    # Handle filter selection
-    if result == f"Current filter: {filter_type}":
-      return State.SELECT_PERSONA_TYPE
-    
-    # Handle navigation
-    if result == "← Previous Page":
-      return self.show_paginated_personas(page - 1, items_per_page, filter_type)
-    elif result == "→ Next Page":
-      return self.show_paginated_personas(page + 1, items_per_page, filter_type)
-    elif result == "← Go Back":
+    return self._handle_persona_pagination_result(result, items_per_page, filter_type)
+
+  def _handle_persona_filter_change(self, filter_type):
+    """Handle persona filter change"""
+    return PaginatedListResult(PaginationAction.FILTER_CHANGED, filter_type)
+
+  def _handle_persona_pagination_result(self, result, items_per_page, filter_type):
+    """Handle pagination result for personas"""
+    if result.action == PaginationAction.PREVIOUS_PAGE:
+      return self.show_paginated_personas(result.data, items_per_page, filter_type)
+    elif result.action == PaginationAction.NEXT_PAGE:
+      return self.show_paginated_personas(result.data, items_per_page, filter_type)
+    elif result.action == PaginationAction.GO_BACK:
       return State.WORK_WITH_PERSONAS
-    
-    # Handle persona selection
-    if result.startswith("→"):
-      return self.show_paginated_personas(page, items_per_page, filter_type)
-    
-    # Extract persona index from selection
-    try:
-      persona_idx = int(result.split('.')[0]) - 1
-      if 0 <= persona_idx < len(filtered_personas):
-        self.show_persona_details(filtered_personas[persona_idx])
-        input("Press Enter to continue...")
-        return self.show_paginated_personas(page, items_per_page, filter_type)
-    except (ValueError, IndexError):
-      pass
-    
-    return self.show_paginated_personas(page, items_per_page, filter_type)
+    elif result.action == PaginationAction.FILTER_CHANGED:
+      return State.SELECT_PERSONA_TYPE
+    else:
+      # Use the page from result.data if available, otherwise default to 0
+      current_page = result.data if result.data is not None else 0
+      return self.show_paginated_personas(current_page, items_per_page, filter_type)
 
   def show_replica_details(self, replica):
     """Show detailed information for a specific replica"""
@@ -773,72 +627,45 @@ class StateMachine:
       input("Press Enter to continue...")
       return State.WORK_WITH_VIDEOS
 
-    total_pages = (len(self.videos) - 1) // items_per_page
-    start_idx = page * items_per_page
-    end_idx = min(start_idx + items_per_page, len(self.videos))
-    current_videos = self.videos[start_idx:end_idx]
+    # Create paginated list
+    paginated_list = PaginatedList(self.videos, items_per_page)
+    paginated_list.set_page(page)
 
-    print(f"\nPage {page + 1} of {total_pages + 1} ({len(self.videos)} videos)")
-    print("=" * 50)
+    def on_video_select_wrapper(video):
+      if on_video_select:
+        # Call the custom callback function
+        result_state = on_video_select(video)
+        if result_state:
+          return PaginatedListResult(PaginationAction.ITEM_SELECTED, result_state)
+        # If callback returns None, continue showing the list
+        return PaginatedListResult(PaginationAction.NO_ACTION, paginated_list.get_current_page())
+      else:
+        # Default behavior: show video details
+        self.show_video_details(video)
+        input("Press Enter to continue...")
+        # Return the current page so we stay on the same page
+        return PaginatedListResult(PaginationAction.NO_ACTION, paginated_list.get_current_page())
 
-    # Build choices list
-    choices = []
-    
-    # Add navigation options
-    if page > 0:
-      choices.append("← Previous Page")
-    
-    # Add video items
-    for i, video in enumerate(current_videos, start_idx + 1):
-      choices.append(f"{i}. {video.display_short()}")
-    
-    # Add navigation options
-    if page < total_pages:
-      choices.append("→ Next Page")
-    
-    choices.append("← Go Back")
-
-    # Show menu
-    cli = Bullet(
-      prompt="Select a video to view details or navigate:",
-      choices=choices,
-      bullet="→",
-      margin=2,
-      shift=0,
+    result = paginated_list.show(
+      title="Videos",
+      on_item_select=on_video_select_wrapper,
+      show_filter_option=False
     )
-    result = cli.launch()
 
-    # Handle navigation
-    if result == "← Previous Page":
-      return self.show_paginated_videos(page - 1, items_per_page, on_video_select)
-    elif result == "→ Next Page":
-      return self.show_paginated_videos(page + 1, items_per_page, on_video_select)
-    elif result == "← Go Back":
+    return self._handle_video_pagination_result(result, items_per_page, on_video_select)
+
+  def _handle_video_pagination_result(self, result, items_per_page, on_video_select):
+    """Handle pagination result for videos"""
+    if result.action == PaginationAction.PREVIOUS_PAGE:
+      return self.show_paginated_videos(result.data, items_per_page, on_video_select)
+    elif result.action == PaginationAction.NEXT_PAGE:
+      return self.show_paginated_videos(result.data, items_per_page, on_video_select)
+    elif result.action == PaginationAction.GO_BACK:
       return State.WORK_WITH_VIDEOS
-    
-    # Handle video selection
-    if result.startswith("→"):
-      return self.show_paginated_videos(page, items_per_page, on_video_select)
-    
-    # Extract video index from selection
-    try:
-      video_idx = int(result.split('.')[0]) - 1
-      if 0 <= video_idx < len(self.videos):
-        selected_video = self.videos[video_idx]
-        
-        if on_video_select:
-          # Call the custom callback function
-          result_state = on_video_select(selected_video)
-          if result_state:
-            return result_state
-          # If callback returns None, continue showing the list
-          return self.show_paginated_videos(page, items_per_page, on_video_select)
-        else:
-          # Default behavior: show video details
-          self.show_video_details(selected_video)
-          input("Press Enter to continue...")
-          return self.show_paginated_videos(page, items_per_page, on_video_select)
-    except (ValueError, IndexError):
-      pass
-    
-    return self.show_paginated_videos(page, items_per_page, on_video_select)
+    elif result.action == PaginationAction.ITEM_SELECTED:
+      # Return the state from the custom callback
+      return result.data
+    else:
+      # Use the page from result.data if available, otherwise default to 0
+      current_page = result.data if result.data is not None else 0
+      return self.show_paginated_videos(current_page, items_per_page, on_video_select)
