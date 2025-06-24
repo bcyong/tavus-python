@@ -265,31 +265,76 @@ class StateMachine:
     for i, persona in enumerate(self.personas, 1):
       print(f"{i}. {persona.display_short()}")
 
-  def show_paginated_replicas(self, page=0, items_per_page=10):
+  def show_paginated_replicas(self, page=0, items_per_page=10, filter_type="all"):
     """Show paginated list of replicas with selection"""
     if not self.replicas:
       print("No replicas found.")
       input("Press Enter to continue...")
       return State.WORK_WITH_REPLICAS
 
-    total_pages = (len(self.replicas) - 1) // items_per_page
-    start_idx = page * items_per_page
-    end_idx = min(start_idx + items_per_page, len(self.replicas))
-    current_replicas = self.replicas[start_idx:end_idx]
+    # Filter replicas based on type
+    if filter_type == "user":
+      filtered_replicas = [r for r in self.replicas if r.replica_type == "user"]
+      sectioned_replicas = [filtered_replicas]
+      section_names = ["User Replicas"]
+    elif filter_type == "system":
+      filtered_replicas = [r for r in self.replicas if r.replica_type == "system"]
+      sectioned_replicas = [filtered_replicas]
+      section_names = ["System Replicas"]
+    else:  # "all"
+      user_replicas = [r for r in self.replicas if r.replica_type == "user"]
+      system_replicas = [r for r in self.replicas if r.replica_type == "system"]
+      filtered_replicas = user_replicas + system_replicas
+      sectioned_replicas = [user_replicas, system_replicas]
+      section_names = ["User Replicas", "System Replicas"]
 
-    print(f"\nPage {page + 1} of {total_pages + 1} ({len(self.replicas)} total replicas)")
+    if not filtered_replicas:
+      print(f"No {filter_type} replicas found.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_REPLICAS
+
+    total_pages = (len(filtered_replicas) - 1) // items_per_page
+    start_idx = page * items_per_page
+    end_idx = min(start_idx + items_per_page, len(filtered_replicas))
+    current_replicas = filtered_replicas[start_idx:end_idx]
+
+    print(f"\nPage {page + 1} of {total_pages + 1} ({len(filtered_replicas)} {filter_type} replicas)")
     print("=" * 50)
 
     # Build choices list
     choices = []
     
+    # Add filter options at the top
+    choices.append(f"Current filter: {filter_type}")
+    
     # Add navigation options
     if page > 0:
       choices.append("← Previous Page")
     
-    # Add replica items
-    for i, replica in enumerate(current_replicas, start_idx + 1):
-      choices.append(f"{i}. {replica.display_short()}")
+    # Add replica items with section headers for "all" view
+    if filter_type == "all":
+      current_idx = start_idx
+      for section_idx, (section_replicas, section_name) in enumerate(zip(sectioned_replicas, section_names)):
+        if section_replicas:  # Only show section if it has replicas
+          # Check if this section has items on current page
+          section_start = current_idx
+          section_end = current_idx + len(section_replicas)
+          
+          if section_start < end_idx and section_end > start_idx:
+            # Add section header
+            choices.append(f"--- {section_name} ---")
+            
+            # Add items from this section that are on current page
+            for i, replica in enumerate(section_replicas):
+              global_idx = current_idx + i + 1
+              if start_idx < global_idx <= end_idx:
+                choices.append(f"{global_idx}. {replica.display_short()}")
+          
+          current_idx += len(section_replicas)
+    else:
+      # Single section view (user or system only)
+      for i, replica in enumerate(current_replicas, start_idx + 1):
+        choices.append(f"{i}. {replica.display_short()}")
     
     # Add navigation options
     if page < total_pages:
@@ -307,29 +352,55 @@ class StateMachine:
     )
     result = cli.launch()
 
+    # Handle filter selection
+    if result == f"Current filter: {filter_type}":
+      return self.show_filter_selection()
+    
     # Handle navigation
     if result == "← Previous Page":
-      return self.show_paginated_replicas(page - 1, items_per_page)
+      return self.show_paginated_replicas(page - 1, items_per_page, filter_type)
     elif result == "→ Next Page":
-      return self.show_paginated_replicas(page + 1, items_per_page)
+      return self.show_paginated_replicas(page + 1, items_per_page, filter_type)
     elif result == "← Go Back":
       return State.WORK_WITH_REPLICAS
     
     # Handle replica selection
-    if result.startswith("→"):
-      return self.show_paginated_replicas(page, items_per_page)
+    if result.startswith("→") or result.startswith("---"):
+      return self.show_paginated_replicas(page, items_per_page, filter_type)
     
     # Extract replica index from selection
     try:
       replica_idx = int(result.split('.')[0]) - 1
-      if 0 <= replica_idx < len(self.replicas):
-        self.show_replica_details(self.replicas[replica_idx])
+      if 0 <= replica_idx < len(filtered_replicas):
+        self.show_replica_details(filtered_replicas[replica_idx])
         input("Press Enter to continue...")
-        return self.show_paginated_replicas(page, items_per_page)
+        return self.show_paginated_replicas(page, items_per_page, filter_type)
     except (ValueError, IndexError):
       pass
     
-    return self.show_paginated_replicas(page, items_per_page)
+    return self.show_paginated_replicas(page, items_per_page, filter_type)
+
+  def show_filter_selection(self):
+    """Show filter selection for replicas"""
+    print("\n=== Filter Replicas ===")
+    
+    cli = Bullet(
+      prompt="Select filter type:",
+      choices=["user only", "system only", "all replicas"],
+      bullet="→",
+      margin=2,
+      shift=0,
+    )
+    result = cli.launch()
+
+    if result == "user only":
+      return self.show_paginated_replicas(filter_type="user")
+    elif result == "system only":
+      return self.show_paginated_replicas(filter_type="system")
+    elif result == "all replicas":
+      return self.show_paginated_replicas(filter_type="all")
+    
+    return self.show_paginated_replicas()
 
   def show_paginated_personas(self, page=0, items_per_page=10):
     """Show paginated list of personas with selection"""
