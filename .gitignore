@@ -193,3 +193,4 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 .python-version
+src/.tavus_api_key
