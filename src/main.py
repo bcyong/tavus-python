@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
 
 import os
+import click
 from bullet import Input
 from yaspin import yaspin
+
 from api_client import TavusAPIClient
 from state_machine import StateMachine
 
-def main():
+@click.command()
+@click.option('--api-key-file', '-f', 
+              default='.tavus_api_key',
+              help='Path to file containing the Tavus API key (default: .tavus_api_key)')
+def main(api_key_file):
   print("Welcome to the Tavus Python CLI Tool!")
 
   # Initialize state machine
   state_machine = StateMachine()
   
   # Set initial API key
-  set_initial_api_key(state_machine)
+  set_initial_api_key(state_machine, api_key_file)
 
   print("Updating replicas and personas...")
   with yaspin(text="Loading replicas..."):
@@ -26,10 +32,10 @@ def main():
   while not state_machine.is_exit_state():
     state_machine.execute_current_state()
 
-def set_initial_api_key(state_machine):
-  """Set the initial API key from .tavus_api_key file"""
-  if os.path.exists(".tavus_api_key"):
-    with open(".tavus_api_key", "r") as file:
+def set_initial_api_key(state_machine, api_key_file):
+  """Set the initial API key from the specified file"""
+  if os.path.exists(api_key_file):
+    with open(api_key_file, "r") as file:
       api_key = file.read().strip()
       api_client = TavusAPIClient(api_key)
       state_machine.set_api_client(api_client)
