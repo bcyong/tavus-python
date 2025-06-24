@@ -11,6 +11,7 @@ A Python CLI wrapper for the Tavus API that provides an interactive command-line
 - **Video Management**: List, rename, and delete videos
 - **API Key Management**: Secure API key handling with file-based storage
 
+
 <p align="center"><img src="/img/demo.gif?raw=true"/></p>
 <p align="center">(yes, the API key is invalid)</p>
 
