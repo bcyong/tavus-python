@@ -18,7 +18,7 @@ class TavusAPIClient:
     Returns:
       Tuple[bool, str, List[Dict]]: (success, message, replicas_list)
     """
-    url = f"{self.base_url}/replicas?verbose=true"
+    url = f"{self.base_url}/replicas?verbose=true&limit=1000"
     
     try:
       response = requests.request("GET", url, headers=self.headers)
@@ -136,7 +136,7 @@ class TavusAPIClient:
     Returns:
       Tuple[bool, str, List[Dict]]: (success, message, personas_list)
     """
-    url = f"{self.base_url}/personas"
+    url = f"{self.base_url}/personas?limit=1000"
     
     try:
       response = requests.request("GET", url, headers=self.headers)
