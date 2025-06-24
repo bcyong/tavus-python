@@ -125,10 +125,10 @@ class Persona:
       lines.append(f"  Updated Date: {updated_date.strftime('%Y-%m-%d %H:%M:%S')}")
     
     # Add system prompt preview
-    lines.append(f"  System Prompt: {self.get_system_prompt_preview(150)}")
+    lines.append(f"  System Prompt: {self.get_system_prompt_preview(1000)}")
     
     # Add context preview
-    lines.append(f"  Context: {self.get_context_preview(150)}")
+    lines.append(f"  Context: {self.get_context_preview(1000)}")
     
     # Add layer information
     if self.layers:
