@@ -94,7 +94,7 @@ tavus-python/
 │       └── video.py         # Video data models
 ├── README.md
 ├── requirements.txt         # Python dependencies
-└── .tavus_api_key          # API key file (create this)
+└── .tavus_api_key           # API key file (create this)
 ```
 
 ## API Key Security
