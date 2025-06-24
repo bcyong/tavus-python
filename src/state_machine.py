@@ -324,8 +324,28 @@ class StateMachine:
   def execute_delete_video(self):
     """Execute delete video functionality and return next state"""
     print("\n=== Delete Video ===")
-    print("Delete video functionality will be implemented here...")
-    # TODO: Implement delete video logic
+    
+    if self.api_client is None:
+      print("Error: API client not initialized. Please set your API key first.")
+      return State.MAIN_MENU
+
+    return self.show_paginated_videos(on_video_select=self._handle_video_delete)
+
+  def _handle_video_delete(self, video):
+    """Handle video delete when a video is selected from the list"""
+    print(f"\nDeleting video: {video.video_name} ({video.video_id})")
+    print("=" * 50)
+
+    cli = YesNo("Are you sure you want to delete this video?", default="n")
+    if cli.launch():
+      with yaspin(text="Deleting video..."):
+        success, message = self.api_client.delete_video(video.video_id)
+
+      if success:
+        print(f"Video deleted successfully")
+      else:
+        print(f"Error deleting video: {message}")
+
     return State.WORK_WITH_VIDEOS
 
   def execute_rename_video(self):
