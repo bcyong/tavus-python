@@ -360,26 +360,6 @@ class StateMachine:
     """Check if current state is exit"""
     return self.current_state == State.EXIT 
 
-  def print_replicas(self):
-    """Print the replicas list using short display format"""
-    if not self.replicas:
-      print("No replicas found.")
-      return
-    
-    print(f"Found {len(self.replicas)} replica(s):\n")
-    for i, replica in enumerate(self.replicas, 1):
-      print(f"{i}. {replica.display_short()}")
-
-  def print_personas(self):
-    """Print the personas list using short display format"""
-    if not self.personas:
-      print("No personas found.")
-      return
-    
-    print(f"Found {len(self.personas)} persona(s):\n")
-    for i, persona in enumerate(self.personas, 1):
-      print(f"{i}. {persona.display_short()}")
-
   def show_paginated_replicas(self, page=0, items_per_page=10, filter_type="all"):
     """Show paginated list of replicas with selection"""
     if not self.replicas:
@@ -424,7 +404,7 @@ class StateMachine:
       
       # Handle filter selection
       if result == f"Current filter: {filter_type}":
-        return self.show_filter_selection()
+        return self.show_replica_filter_selection()
       elif result == "← Go Back":
         return State.WORK_WITH_REPLICAS
       
@@ -500,7 +480,7 @@ class StateMachine:
 
     # Handle filter selection
     if result == f"Current filter: {filter_type}":
-      return self.show_filter_selection()
+      return self.show_replica_filter_selection()
     
     # Handle navigation
     if result == "← Previous Page":
@@ -526,7 +506,7 @@ class StateMachine:
     
     return self.show_paginated_replicas(page, items_per_page, filter_type)
 
-  def show_filter_selection(self):
+  def show_replica_filter_selection(self):
     """Show filter selection for replicas"""
     print("\n=== Filter Replicas ===")
     
