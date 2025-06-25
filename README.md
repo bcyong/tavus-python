@@ -87,14 +87,18 @@ tavus-python/
 │   ├── main.py              # Main CLI entry point
 │   ├── api_client.py        # Tavus API client implementation
 │   ├── state_machine.py     # Interactive state machine
-│   └── models/
-│       ├── __init__.py
-│       ├── persona.py       # Persona data models
-│       ├── replica.py       # Replica data models
-│       └── video.py         # Video data models
+│   ├── paginated_list.py    # Paginated list display utilities
+│   ├── paginated_bullet.py  # Paginated bullet point selection
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── persona.py       # Persona data models
+│   │   ├── replica.py       # Replica data models
+│   │   └── video.py         # Video data models
+│   └── .tavus_api_key       # API key file (create this)
+├── img/
+│   └── demo.gif             # Demo animation
 ├── README.md
-├── requirements.txt         # Python dependencies
-└── .tavus_api_key           # API key file (create this)
+└── requirements.txt         # Python dependencies
 ```
 
 ## API Key Security
