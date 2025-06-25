@@ -92,7 +92,6 @@ class Replica:
       f"  Type: {self.replica_type}",
       f"  Status: {self.status}",
       f"  Training Progress: {self.training_progress}",
-      f"  Created: {self.created_at}",
     ]
     
     if self.thumbnail_video_url:
@@ -106,9 +105,6 @@ class Replica:
     updated_date = self.get_updated_date()
     if updated_date:
       lines.append(f"  Updated Date: {updated_date.strftime('%Y-%m-%d %H:%M:%S')}")
-    
-    training_pct = self.get_training_percentage()
-    lines.append(f"  Training Percentage: {training_pct}%")
     
     return "\n".join(lines)
   
