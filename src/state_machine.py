@@ -203,8 +203,68 @@ class StateMachine:
   def execute_create_replica(self):
     """Execute create replica functionality and return next state"""
     print("\n=== Create Replica ===")
-    print("Create replica functionality will be implemented here...")
-    # TODO: Implement create replica logic
+    
+    if self.api_client is None:
+      print("Error: API client not initialized. Please set your API key first.")
+      return State.MAIN_MENU
+
+    # Collect replica creation parameters
+    cli = Input("Replica Name: ")
+    replica_name = cli.launch()
+    
+    if not replica_name or not replica_name.strip():
+      print("Replica name cannot be empty. Please try again.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_REPLICAS
+
+    cli = Input("Training Video URL: ")
+    training_video_url = cli.launch()
+    
+    if not training_video_url or not training_video_url.strip():
+      print("Video URL cannot be empty. Please try again.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_REPLICAS
+
+    cli = Input("Consent Video URL: ")
+    consent_video_url = cli.launch()
+    
+    if not consent_video_url or not consent_video_url.strip():
+      print("Video URL cannot be empty. Please try again.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_REPLICAS
+    
+    # Show final confirmation
+    print(f"\nConfirm replica creation:")
+    print(f"  Name: {replica_name}")
+    print(f"  Training Video URL: {training_video_url}")
+    print(f"  Consent Video URL: {consent_video_url}")
+    print("=" * 50)
+    
+    cli = YesNo("Proceed with replica creation? ", default="n")
+    if not cli.launch():
+      print("Replica creation cancelled.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_REPLICAS
+    
+    # Prepare replica data
+    replica_data = {
+      "replica_name": replica_name,
+      "train_video_url": training_video_url,
+      "consent_video_url": consent_video_url
+    }
+    
+    with yaspin(text="Creating replica..."):
+      success, message, response_data = self.api_client.create_replica(replica_data)
+    
+    if success:
+      print(f"\n✅ {message}")
+      print(f"Replica ID: {response_data.get('replica_id', 'N/A')}")
+      print(f"Status: {response_data.get('status', 'N/A')}")
+      print("\nNote: Replica training is now in progress. You can check the status later.")
+    else:
+      print(f"\n❌ {message}")
+    
+    input("Press Enter to continue...")
     return State.WORK_WITH_REPLICAS
 
   def execute_list_replicas(self):

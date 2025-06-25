@@ -63,7 +63,7 @@ class TavusAPIClient:
     except Exception as e:
       return False, f"Error fetching replica: {e}", None
   
-  def create_replica(self, replica_data: Dict) -> Tuple[bool, str, Optional[Replica]]:
+  def create_replica(self, replica_data: Dict) -> Tuple[bool, str, Optional[Dict]]:
     """
     Create a new replica
     
@@ -71,17 +71,16 @@ class TavusAPIClient:
       replica_data: Dictionary containing replica creation parameters
       
     Returns:
-      Tuple[bool, str, Optional[Replica]]: (success, message, created_replica_data)
+      Tuple[bool, str, Optional[Dict]]: (success, message, response_data)
     """
     url = f"{self.base_url}/replicas"
     
     try:
       response = requests.request("POST", url, headers=self.headers, json=replica_data)
       
-      if response.status_code == 201:
-        created_replica_data = response.json()
-        replica = Replica.from_dict(created_replica_data)
-        return True, "Successfully created replica", replica
+      if response.status_code == 200:
+        response_data = response.json()
+        return True, "Successfully created replica", response_data
       else:
         return False, f"Error: HTTP {response.status_code} - {response.text}", None
         
