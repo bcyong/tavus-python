@@ -122,13 +122,13 @@ class TavusAPIClient:
     Returns:
       Tuple[bool, str]: (success, message)
     """
-    url = f"{self.base_url}/replicas/{replica_id}"
+    url = f"{self.base_url}/replicas/{replica_id}/name"
     payload = {"replica_name": new_name}
     
     try:
       response = requests.request("PATCH", url, headers=self.headers, json=payload)
       
-      if response.status_code == 200:
+      if response.status_code == 204:
         return True, "Successfully renamed replica"
       else:
         return False, f"Error: HTTP {response.status_code} - {response.text}"
