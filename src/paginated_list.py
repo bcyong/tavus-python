@@ -3,6 +3,7 @@
 from typing import List, Callable, Optional, Any
 from bullet import Bullet
 from enum import Enum
+from paginated_bullet import PaginatedBullet
 
 class PaginationAction(Enum):
     """Actions that can be returned from paginated list interactions"""
@@ -88,13 +89,14 @@ class PaginatedList:
         choices.append("← Go Back")
         
         # Show menu
-        cli = Bullet(
+        cli = PaginatedBullet(
             prompt=f"Select a {title.lower()} to view details or navigate:",
             choices=choices,
             bullet="→",
             margin=2,
             shift=0,
         )
+        
         result = cli.launch()
         
         # Handle filter selection
@@ -145,7 +147,7 @@ class PaginatedList:
         choices.append(f"Current filter: {filter_type}")
         choices.append("← Go Back")
         
-        cli = Bullet(
+        cli = PaginatedBullet(
             prompt=f"No {title.lower()} found. What would you like to do?",
             choices=choices,
             bullet="→",
@@ -325,13 +327,14 @@ class SectionedPaginatedList(PaginatedList):
         choices.append("← Go Back")
         
         # Show menu
-        cli = Bullet(
+        cli = PaginatedBullet(
             prompt=f"Select a {title.lower()} to view details or navigate:",
             choices=choices,
             bullet="→",
             margin=2,
             shift=0,
         )
+        
         result = cli.launch()
         
         # Handle filter selection
