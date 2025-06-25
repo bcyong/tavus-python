@@ -16,7 +16,7 @@ class State(Enum):
   WORK_WITH_VIDEOS = "work_with_videos"
   CREATE_REPLICA = "create_replica"
   LIST_REPLICAS = "list_replicas"
-  MODIFY_REPLICA = "modify_replica"
+  RENAME_REPLICA = "rename_replica"
   DELETE_REPLICA = "delete_replica"
   CREATE_PERSONA = "create_persona"
   LIST_PERSONAS = "list_personas"
@@ -53,8 +53,8 @@ class StateMachine:
       self.current_state = self.execute_create_replica()
     elif self.current_state == State.LIST_REPLICAS:
       self.current_state = self.execute_list_replicas()
-    elif self.current_state == State.MODIFY_REPLICA:
-      self.current_state = self.execute_modify_replica()
+    elif self.current_state == State.RENAME_REPLICA:
+      self.current_state = self.execute_rename_replica()
     elif self.current_state == State.DELETE_REPLICA:
       self.current_state = self.execute_delete_replica()
     elif self.current_state == State.CREATE_PERSONA:
@@ -127,7 +127,7 @@ class StateMachine:
 
     cli = Bullet(
       prompt="What would you like to do with Replicas?",
-      choices=["Create a Replica", "List Replicas", "Modify a Replica", "Delete a Replica", "Back to Main Menu"],
+      choices=["Create a Replica", "List Replicas", "Rename a Replica", "Delete a Replica", "Back to Main Menu"],
       bullet="🧑",
       margin=2,
       shift=0,
@@ -138,8 +138,8 @@ class StateMachine:
       return State.CREATE_REPLICA
     elif result == "List Replicas":
       return State.LIST_REPLICAS
-    elif result == "Modify a Replica":
-      return State.MODIFY_REPLICA
+    elif result == "Rename a Replica":
+      return State.RENAME_REPLICA
     elif result == "Delete a Replica":
       return State.DELETE_REPLICA
     elif result == "Back to Main Menu":
@@ -217,11 +217,69 @@ class StateMachine:
 
     return self.show_paginated_replicas()
 
-  def execute_modify_replica(self):
-    """Execute modify replica functionality and return next state"""
-    print("\n=== Modify Replica ===")
-    print("Modify replica functionality will be implemented here...")
-    # TODO: Implement modify replica logic
+  def execute_rename_replica(self):
+    """Execute rename replica functionality and return next state"""
+    print("\n=== Rename Replica ===")
+    
+    if self.api_client is None:
+      print("Error: API client not initialized. Please set your API key first.")
+      return State.MAIN_MENU
+
+    # Only show user replicas since system replicas cannot be renamed
+    return self.show_paginated_replicas(on_replica_select=self._handle_replica_rename, filter_type="user")
+
+  def _handle_replica_rename(self, replica):
+    """Handle replica rename when a replica is selected from the list"""
+    print(f"\nRenaming replica: {replica.replica_name} ({replica.replica_id})")
+    print("=" * 50)
+    
+    # Additional safety check - ensure only user replicas can be renamed
+    if replica.replica_type != "user":
+      print(f"Error: Cannot rename system replicas. This replica is of type '{replica.replica_type}'.")
+      print("Only user replicas can be renamed.")
+      input("Press Enter to continue...")
+      return None  # Return to replica list
+    
+    # Show full replica details first
+    self.show_replica_details(replica)
+    print("=" * 50)
+    
+    if self.api_client is None:
+      print("Error: API client not initialized.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_REPLICAS
+    
+    cli = Input("Enter new replica name: ")
+    new_name = cli.launch()
+    
+    if not new_name or not new_name.strip():
+      print("Replica name cannot be empty. Please try again.")
+      input("Press Enter to continue...")
+      return None  # Return to replica list
+    
+    # Show confirmation dialog
+    print(f"\nConfirm rename operation:")
+    print(f"  From: {replica.replica_name}")
+    print(f"  To:   {new_name}")
+    print("=" * 50)
+    
+    cli = YesNo("Are you sure you want to rename this replica?", default="n")
+    if not cli.launch():
+      print("Rename operation cancelled.")
+      input("Press Enter to continue...")
+      return None  # Return to replica list
+    
+    with yaspin(text="Renaming replica..."):
+      success, message = self.api_client.rename_replica(replica.replica_id, new_name)
+    
+    if success:
+      print(f"Replica renamed successfully to: {new_name}")
+      # Update the replica object in our list
+      replica.replica_name = new_name
+    else:
+      print(f"Error renaming replica: {message}")
+    
+    input("Press Enter to continue...")
     return State.WORK_WITH_REPLICAS
 
   def execute_delete_replica(self):
@@ -381,32 +439,22 @@ class StateMachine:
       filtered_replicas = self.replicas
     
     if not filtered_replicas:
-      # Show empty state with option to change filter
-      print(f"\nNo {filter_type} replicas found.")
-      print("=" * 50)
-      
-      choices = []
-      choices.append(f"Current filter: {filter_type}")
-      choices.append("← Go Back")
-      
-      cli = Bullet(
-        prompt="No replicas found. What would you like to do?",
-        choices=choices,
-        bullet="→",
-        margin=2,
-        shift=0,
-      )
-      result = cli.launch()
-      
-      if result == f"Current filter: {filter_type}":
-        # User wants to change filter, show filter selection
-        return self._select_replica_for_video_with_filter()
-      elif result == "← Go Back":
-        # User wants to go back, return None
-        return None
-      
-      # Default case - show filter selection
-      return self._select_replica_for_video_with_filter()
+      # Create empty paginated list for proper empty state handling
+      if filter_type == "user" and on_replica_select:
+        # Special case for rename operation - no user replicas available
+        print(f"\nNo user replicas found.")
+        print("Only user replicas can be renamed. System replicas cannot be modified.")
+        input("Press Enter to continue...")
+        return State.WORK_WITH_REPLICAS
+      else:
+        # General empty state handling
+        paginated_list = PaginatedList([])
+        result = paginated_list.show(
+          title="Replicas",
+          filter_type=filter_type,
+          on_filter_change=self._handle_replica_filter_change
+        )
+        return self._handle_replica_pagination_result(result, items_per_page, filter_type, on_replica_select)
     
     # Create paginated list with filtered replicas
     paginated_list = PaginatedList(filtered_replicas, 10)
@@ -624,8 +672,17 @@ class StateMachine:
     """Check if current state is exit"""
     return self.current_state == State.EXIT 
 
-  def show_paginated_replicas(self, page=0, items_per_page=10, filter_type="all"):
-    """Show paginated list of replicas with selection"""
+  def show_paginated_replicas(self, page=0, items_per_page=10, filter_type="all", on_replica_select=None):
+    """Show paginated list of replicas with selection
+    
+    Args:
+      page: Current page number (0-based)
+      items_per_page: Number of items per page
+      filter_type: Type of replicas to show ("user", "system", or "all")
+      on_replica_select: Optional callback function to call when a replica is selected.
+                        Should accept a Replica object and return a State or None.
+                        If None, shows replica details and returns to list.
+    """
     if not self.replicas:
       print("No replicas found.")
       input("Press Enter to continue...")
@@ -649,72 +706,99 @@ class StateMachine:
 
     if not filtered_replicas:
       # Create empty paginated list for proper empty state handling
-      paginated_list = PaginatedList([])
-      result = paginated_list.show(
-        title="Replicas",
-        filter_type=filter_type,
-        on_filter_change=self._handle_replica_filter_change
-      )
-      return self._handle_replica_pagination_result(result, items_per_page, filter_type)
+      if filter_type == "user" and on_replica_select:
+        # Special case for rename operation - no user replicas available
+        print(f"\nNo user replicas found.")
+        print("Only user replicas can be renamed. System replicas cannot be modified.")
+        input("Press Enter to continue...")
+        return State.WORK_WITH_REPLICAS
+      else:
+        # General empty state handling
+        paginated_list = PaginatedList([])
+        result = paginated_list.show(
+          title="Replicas",
+          filter_type=filter_type,
+          on_filter_change=self._handle_replica_filter_change
+        )
+        return self._handle_replica_pagination_result(result, items_per_page, filter_type, on_replica_select)
 
     # Create sectioned paginated list
     paginated_list = SectionedPaginatedList(filtered_replicas, items_per_page)
     paginated_list.set_sections(sectioned_replicas, section_names)
     paginated_list.set_page(page)
 
-    def on_replica_select(replica):
-      self.show_replica_details(replica)
-      input("Press Enter to continue...")
-      # Return the current page so we stay on the same page
-      return PaginatedListResult(PaginationAction.NO_ACTION, paginated_list.get_current_page())
+    def on_replica_select_wrapper(replica):
+      if on_replica_select:
+        # Call the custom callback function
+        result_state = on_replica_select(replica)
+        if result_state:
+          return PaginatedListResult(PaginationAction.ITEM_SELECTED, result_state)
+        # If callback returns None, continue showing the list
+        return PaginatedListResult(PaginationAction.NO_ACTION, paginated_list.get_current_page())
+      else:
+        # Default behavior: show replica details
+        self.show_replica_details(replica)
+        input("Press Enter to continue...")
+        # Return the current page so we stay on the same page
+        return PaginatedListResult(PaginationAction.NO_ACTION, paginated_list.get_current_page())
 
     result = paginated_list.show(
       title="Replicas",
       filter_type=filter_type,
-      on_item_select=on_replica_select,
+      on_item_select=on_replica_select_wrapper,
       on_filter_change=self._handle_replica_filter_change
     )
 
-    return self._handle_replica_pagination_result(result, items_per_page, filter_type)
+    return self._handle_replica_pagination_result(result, items_per_page, filter_type, on_replica_select)
 
   def _handle_replica_filter_change(self, filter_type):
     """Handle replica filter change"""
     return PaginatedListResult(PaginationAction.FILTER_CHANGED, filter_type)
 
-  def _handle_replica_pagination_result(self, result, items_per_page, filter_type):
+  def _handle_replica_pagination_result(self, result, items_per_page, filter_type, on_replica_select):
     """Handle pagination result for replicas"""
     if result.action == PaginationAction.PREVIOUS_PAGE:
-      return self.show_paginated_replicas(result.data, items_per_page, filter_type)
+      return self.show_paginated_replicas(result.data, items_per_page, filter_type, on_replica_select)
     elif result.action == PaginationAction.NEXT_PAGE:
-      return self.show_paginated_replicas(result.data, items_per_page, filter_type)
+      return self.show_paginated_replicas(result.data, items_per_page, filter_type, on_replica_select)
     elif result.action == PaginationAction.GO_BACK:
       return State.WORK_WITH_REPLICAS
     elif result.action == PaginationAction.FILTER_CHANGED:
-      return self.show_replica_filter_selection()
+      # Handle filter change while preserving the callback
+      return self.show_replica_filter_selection_with_callback(on_replica_select)
+    elif result.action == PaginationAction.ITEM_SELECTED:
+      # Return the state from the custom callback
+      return result.data
     else:
       # Use the page from result.data if available, otherwise default to 0
       current_page = result.data if result.data is not None else 0
-      return self.show_paginated_replicas(current_page, items_per_page, filter_type)
+      return self.show_paginated_replicas(current_page, items_per_page, filter_type, on_replica_select)
 
-  def show_replica_filter_selection(self):
-    """Show filter selection for replicas"""
+  def show_replica_filter_selection_with_callback(self, on_replica_select=None):
+    """Show filter selection for replicas with optional callback preservation"""
     print("\n=== Filter Replicas ===")
     
-    cli = Bullet(
-      prompt="Select filter type:",
-      choices=["user only", "system only", "all replicas"],
-      bullet="→",
-      margin=2,
-      shift=0,
-    )
-    result = cli.launch()
+    # If we have a callback (like for rename), only show user replicas option
+    if on_replica_select:
+      print("Only user replicas can be renamed. System replicas cannot be modified.")
+      return self.show_paginated_replicas(filter_type="user", on_replica_select=on_replica_select)
+    else:
+      # Standard filter selection for normal browsing
+      cli = Bullet(
+        prompt="Select filter type:",
+        choices=["user only", "system only", "all replicas"],
+        bullet="→",
+        margin=2,
+        shift=0,
+      )
+      result = cli.launch()
 
-    if result == "user only":
-      return self.show_paginated_replicas(filter_type="user")
-    elif result == "system only":
-      return self.show_paginated_replicas(filter_type="system")
-    elif result == "all replicas":
-      return self.show_paginated_replicas(filter_type="all")
+      if result == "user only":
+        return self.show_paginated_replicas(filter_type="user")
+      elif result == "system only":
+        return self.show_paginated_replicas(filter_type="system")
+      elif result == "all replicas":
+        return self.show_paginated_replicas(filter_type="all")
     
     return self.show_paginated_replicas()
 
