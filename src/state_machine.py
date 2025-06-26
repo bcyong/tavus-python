@@ -110,8 +110,8 @@ class StateMachine:
     print("Currently set API key: ", self.api_key)
     cli = YesNo(prompt="Would you like to set a new API key?", default="n")
     if cli.launch():
-      cli = Input(prompt="Enter your new Tavus API Key: ")
-      self.api_key = cli.launch()
+      print("Enter your Tavus API Key:")
+      self.api_key = input("API Key: ")
       print(f"Tavus API key: {self.api_key}")
       
       self.api_client = TavusAPIClient(self.api_key)
@@ -209,24 +209,24 @@ class StateMachine:
       return State.MAIN_MENU
 
     # Collect replica creation parameters
-    cli = Input("Replica Name: ")
-    replica_name = cli.launch()
+    print("Enter replica name:")
+    replica_name = input("Replica Name: ")
     
     if not replica_name or not replica_name.strip():
       print("Replica name cannot be empty. Please try again.")
       input("Press Enter to continue...")
       return State.WORK_WITH_REPLICAS
 
-    cli = Input("Training Video URL: ")
-    training_video_url = cli.launch()
+    print("Enter training video URL:")
+    training_video_url = input("Training Video URL: ")
     
     if not training_video_url or not training_video_url.strip():
       print("Video URL cannot be empty. Please try again.")
       input("Press Enter to continue...")
       return State.WORK_WITH_REPLICAS
 
-    cli = Input("Consent Video URL: ")
-    consent_video_url = cli.launch()
+    print("Enter consent video URL:")
+    consent_video_url = input("Consent Video URL: ")
     
     if not consent_video_url or not consent_video_url.strip():
       print("Video URL cannot be empty. Please try again.")
@@ -310,8 +310,8 @@ class StateMachine:
       input("Press Enter to continue...")
       return State.WORK_WITH_REPLICAS
     
-    cli = Input("Enter new replica name: ")
-    new_name = cli.launch()
+    print("Enter the new replica name:")
+    new_name = input("New name: ")
     
     if not new_name or not new_name.strip():
       print("Replica name cannot be empty. Please try again.")
@@ -473,8 +473,8 @@ class StateMachine:
     replica_id = None
     
     if selection_method == "Enter Replica ID manually":
-      cli = Input("Replica ID: ")
-      replica_id = cli.launch()
+      print("Enter the replica ID:")
+      replica_id = input("Replica ID: ")
     elif selection_method == "Select from replica list":
       # Fetch and show replicas for selection
       with yaspin(text="Loading replicas..."):
@@ -498,8 +498,8 @@ class StateMachine:
       input("Press Enter to continue...")
       return State.WORK_WITH_VIDEOS
 
-    cli = Input("Script: ")
-    script = cli.launch()
+    print("Enter your script (you can paste multi-line text):")
+    script = input("Script: ")
     
     if not script or not script.strip():
       print("Script cannot be empty. Please try again.")
@@ -695,10 +695,10 @@ class StateMachine:
       input("Press Enter to continue...")
       return State.WORK_WITH_VIDEOS
     
-    cli = Input("Enter new video name: ")
-    new_name = cli.launch()
+    print("Enter the new video name:")
+    new_name = input("New name: ")
     
-    if not new_name.strip():
+    if not new_name or not new_name.strip():
       print("Video name cannot be empty. Please try again.")
       input("Press Enter to continue...")
       return None  # Return to video list
