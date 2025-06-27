@@ -424,8 +424,67 @@ class StateMachine:
   def execute_delete_persona(self):
     """Execute delete persona functionality and return next state"""
     print("\n=== Delete Persona ===")
-    print("Delete persona functionality will be implemented here...")
-    # TODO: Implement delete persona logic
+    
+    if self.api_client is None:
+      print("Error: API client not initialized. Please set your API key first.")
+      return State.MAIN_MENU
+
+    # Only show user personas since system personas cannot be deleted
+    print("Only user personas can be deleted. System personas cannot be modified.")
+    
+    # Load user personas first
+    with yaspin(text="Loading user personas..."):
+      self.update_personas("user")
+    
+    return self.show_paginated_personas(on_persona_select=self._handle_persona_delete, filter_type="user", show_filter_option=False)
+
+  def _handle_persona_delete(self, persona):
+    """Handle persona delete when a persona is selected from the list"""
+    print(f"\nDeleting persona: {persona.persona_name} ({persona.persona_id})")
+    print("=" * 50)
+    
+    # Additional safety check - ensure only user personas can be deleted
+    if persona.persona_type != "user":
+      print(f"Error: Cannot delete system personas. This persona is of type '{persona.persona_type}'.")
+      print("Only user personas can be deleted.")
+      input("Press Enter to continue...")
+      return None  # Return to persona list
+    
+    # Show full persona details first
+    self.show_persona_details(persona)
+    print("=" * 50)
+    
+    if self.api_client is None:
+      print("Error: API client not initialized.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_PERSONAS
+    
+    # Show confirmation dialog
+    print(f"\nConfirm delete operation:")
+    print(f"  Persona Name: {persona.persona_name}")
+    print(f"  Persona ID: {persona.persona_id}")
+    print(f"  Persona Type: {persona.persona_type}")
+    print("=" * 50)
+    print("WARNING: This action cannot be undone!")
+    print("=" * 50)
+    
+    cli = YesNo("Are you sure you want to delete this persona?", default="n")
+    if not cli.launch():
+      print("Delete operation cancelled.")
+      input("Press Enter to continue...")
+      return None  # Return to persona list
+    
+    with yaspin(text="Deleting persona..."):
+      success, message = self.api_client.delete_persona(persona.persona_id)
+    
+    if success:
+      print(f"Persona deleted successfully: {persona.persona_name}")
+      # Remove the persona from our local list
+      self.personas = [p for p in self.personas if p.persona_id != persona.persona_id]
+    else:
+      print(f"Error deleting persona: {message}")
+    
+    input("Press Enter to continue...")
     return State.WORK_WITH_PERSONAS
 
   def execute_select_persona_type(self):
@@ -914,47 +973,81 @@ class StateMachine:
     
     return self.show_paginated_replicas()
 
-  def show_paginated_personas(self, page=0, items_per_page=10, filter_type="system"):
-    """Show paginated list of personas with selection"""
+  def show_paginated_personas(self, page=0, items_per_page=10, filter_type="system", on_persona_select=None, show_filter_option=True):
+    """Show paginated list of personas with selection
+    
+    Args:
+      page: Current page number (0-based)
+      items_per_page: Number of items per page
+      filter_type: Type of personas to show ("user", "system", or "all")
+      on_persona_select: Optional callback function to call when a persona is selected.
+                        Should accept a Persona object and return a State or None.
+                        If None, shows persona details and returns to list.
+      show_filter_option: Whether to show the filter option. Default is True.
+    """
     if not self.personas:
+      print("No personas found.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_PERSONAS
+
+    # Filter personas based on type
+    if filter_type == "user":
+      filtered_personas = [p for p in self.personas if p.persona_type == "user"]
+    elif filter_type == "system":
+      filtered_personas = [p for p in self.personas if p.persona_type == "system"]
+    else:  # "all"
+      filtered_personas = self.personas
+
+    if not filtered_personas:
       # Create empty paginated list for proper empty state handling
       paginated_list = PaginatedList([])
       result = paginated_list.show(
         title="Personas",
         filter_type=filter_type,
-        on_filter_change=self._handle_persona_filter_change
+        on_filter_change=self._handle_persona_filter_change,
+        show_filter_option=show_filter_option
       )
-      return self._handle_persona_pagination_result(result, items_per_page, filter_type)
+      return self._handle_persona_pagination_result(result, items_per_page, filter_type, on_persona_select, show_filter_option)
 
-    # Create paginated list
-    paginated_list = PaginatedList(self.personas, items_per_page)
+    # Create paginated list with filtered personas
+    paginated_list = PaginatedList(filtered_personas, items_per_page)
     paginated_list.set_page(page)
 
-    def on_persona_select(persona):
-      self.show_persona_details(persona)
-      input("Press Enter to continue...")
-      # Return the current page so we stay on the same page
-      return PaginatedListResult(PaginationAction.NO_ACTION, paginated_list.get_current_page())
+    def on_persona_select_wrapper(persona):
+      if on_persona_select:
+        # Call the custom callback function
+        result_state = on_persona_select(persona)
+        if result_state:
+          return PaginatedListResult(PaginationAction.ITEM_SELECTED, result_state)
+        # If callback returns None, continue showing the list
+        return PaginatedListResult(PaginationAction.NO_ACTION, paginated_list.get_current_page())
+      else:
+        # Default behavior: show persona details
+        self.show_persona_details(persona)
+        input("Press Enter to continue...")
+        # Return the current page so we stay on the same page
+        return PaginatedListResult(PaginationAction.NO_ACTION, paginated_list.get_current_page())
 
     result = paginated_list.show(
       title="Personas",
       filter_type=filter_type,
-      on_item_select=on_persona_select,
-      on_filter_change=self._handle_persona_filter_change
+      on_item_select=on_persona_select_wrapper,
+      on_filter_change=self._handle_persona_filter_change,
+      show_filter_option=show_filter_option
     )
 
-    return self._handle_persona_pagination_result(result, items_per_page, filter_type)
+    return self._handle_persona_pagination_result(result, items_per_page, filter_type, on_persona_select, show_filter_option)
 
   def _handle_persona_filter_change(self, filter_type):
     """Handle persona filter change"""
     return PaginatedListResult(PaginationAction.FILTER_CHANGED, filter_type)
 
-  def _handle_persona_pagination_result(self, result, items_per_page, filter_type):
+  def _handle_persona_pagination_result(self, result, items_per_page, filter_type, on_persona_select, show_filter_option=True):
     """Handle pagination result for personas"""
     if result.action == PaginationAction.PREVIOUS_PAGE:
-      return self.show_paginated_personas(result.data, items_per_page, filter_type)
+      return self.show_paginated_personas(result.data, items_per_page, filter_type, on_persona_select, show_filter_option)
     elif result.action == PaginationAction.NEXT_PAGE:
-      return self.show_paginated_personas(result.data, items_per_page, filter_type)
+      return self.show_paginated_personas(result.data, items_per_page, filter_type, on_persona_select, show_filter_option)
     elif result.action == PaginationAction.GO_BACK:
       return State.WORK_WITH_PERSONAS
     elif result.action == PaginationAction.FILTER_CHANGED:
@@ -962,7 +1055,7 @@ class StateMachine:
     else:
       # Use the page from result.data if available, otherwise default to 0
       current_page = result.data if result.data is not None else 0
-      return self.show_paginated_personas(current_page, items_per_page, filter_type)
+      return self.show_paginated_personas(current_page, items_per_page, filter_type, on_persona_select, show_filter_option)
 
   def show_replica_details(self, replica):
     """Show detailed information for a specific replica"""
