@@ -287,7 +287,7 @@ class StateMachine:
 
     # Only show user replicas since system replicas cannot be renamed
     print("Only user replicas can be renamed. System replicas cannot be modified.")
-    return self.show_paginated_replicas(on_replica_select=self._handle_replica_rename, filter_type="user")
+    return self.show_paginated_replicas(on_replica_select=self._handle_replica_rename, filter_type="user", show_filter_option=False)
 
   def _handle_replica_rename(self, replica):
     """Handle replica rename when a replica is selected from the list"""
@@ -353,7 +353,7 @@ class StateMachine:
 
     # Only show user replicas since system replicas cannot be deleted
     print("Only user replicas can be deleted. System replicas cannot be modified.")
-    return self.show_paginated_replicas(on_replica_select=self._handle_replica_delete, filter_type="user")
+    return self.show_paginated_replicas(on_replica_select=self._handle_replica_delete, filter_type="user", show_filter_option=False)
 
   def _handle_replica_delete(self, replica):
     """Handle replica delete when a replica is selected from the list"""
@@ -600,31 +600,8 @@ class StateMachine:
 
   def _select_replica_for_video(self, page=0, filter_type="all"):
     """Show paginated replica list for video creation selection"""
-    # Create a custom paginated list for replica selection
     if not self.replicas:
       return None
-    
-    # Filter replicas based on type
-    if filter_type == "user":
-      filtered_replicas = [r for r in self.replicas if r.replica_type == "user"]
-    elif filter_type == "system":
-      filtered_replicas = [r for r in self.replicas if r.replica_type == "system"]
-    else:  # "all"
-      filtered_replicas = self.replicas
-    
-    if not filtered_replicas:
-      # Create empty paginated list for proper empty state handling
-      paginated_list = PaginatedList([])
-      result = paginated_list.show(
-        title="Replicas",
-        filter_type=filter_type,
-        on_filter_change=self._handle_replica_filter_change
-      )
-      return self._handle_replica_pagination_result(result, items_per_page, filter_type, on_replica_select)
-    
-    # Create paginated list with filtered replicas
-    paginated_list = PaginatedList(filtered_replicas, 10)
-    paginated_list.set_page(page)
     
     def on_replica_select(replica):
       # Return the selected replica for video creation
@@ -634,32 +611,27 @@ class StateMachine:
       # Handle filter change by returning to video creation to restart with new filter
       return PaginatedListResult(PaginationAction.FILTER_CHANGED, filter_type)
     
-    result = paginated_list.show(
-      title="Replicas",
-      filter_type=filter_type,
-      on_item_select=on_replica_select,
-      on_filter_change=on_filter_change,
+    # Use the existing show_paginated_replicas method with custom callbacks
+    result = self.show_paginated_replicas(
+      page=page, 
+      filter_type=filter_type, 
+      on_replica_select=on_replica_select,
       show_filter_option=True
     )
     
     # Handle the result
-    if result.action == PaginationAction.ITEM_SELECTED:
-      return result.data
-    elif result.action == PaginationAction.PREVIOUS_PAGE:
-      # Stay in replica selection with previous page
-      return self._select_replica_for_video(result.data, filter_type)
-    elif result.action == PaginationAction.NEXT_PAGE:
-      # Stay in replica selection with next page
-      return self._select_replica_for_video(result.data, filter_type)
-    elif result.action == PaginationAction.FILTER_CHANGED:
-      # Handle filter change by showing filter selection
-      return self._select_replica_for_video_with_filter()
-    elif result.action == PaginationAction.GO_BACK:
-      # User chose to go back, return None
-      return None
+    if isinstance(result, PaginatedListResult):
+      if result.action == PaginationAction.ITEM_SELECTED:
+        return result.data
+      elif result.action == PaginationAction.FILTER_CHANGED:
+        # Handle filter change by showing filter selection
+        return self._select_replica_for_video_with_filter()
+      elif result.action == PaginationAction.GO_BACK:
+        # User chose to go back, return None
+        return None
     
-    # Default case - stay in replica selection
-    return self._select_replica_for_video(paginated_list.get_current_page(), filter_type)
+    # If result is a State, it means we're navigating away
+    return None
 
   def _select_replica_for_video_with_filter(self):
     """Show replica selection with filter handling"""
@@ -838,7 +810,7 @@ class StateMachine:
     """Check if current state is exit"""
     return self.current_state == State.EXIT 
 
-  def show_paginated_replicas(self, page=0, items_per_page=10, filter_type="all", on_replica_select=None):
+  def show_paginated_replicas(self, page=0, items_per_page=10, filter_type="all", on_replica_select=None, show_filter_option=True):
     """Show paginated list of replicas with selection
     
     Args:
@@ -848,6 +820,7 @@ class StateMachine:
       on_replica_select: Optional callback function to call when a replica is selected.
                         Should accept a Replica object and return a State or None.
                         If None, shows replica details and returns to list.
+      show_filter_option: Whether to show the filter option. Default is True.
     """
     if not self.replicas:
       print("No replicas found.")
@@ -876,9 +849,10 @@ class StateMachine:
       result = paginated_list.show(
         title="Replicas",
         filter_type=filter_type,
-        on_filter_change=self._handle_replica_filter_change
+        on_filter_change=self._handle_replica_filter_change,
+        show_filter_option=show_filter_option
       )
-      return self._handle_replica_pagination_result(result, items_per_page, filter_type, on_replica_select)
+      return self._handle_replica_pagination_result(result, items_per_page, filter_type, on_replica_select, show_filter_option)
 
     # Create sectioned paginated list
     paginated_list = SectionedPaginatedList(filtered_replicas, items_per_page)
@@ -904,21 +878,22 @@ class StateMachine:
       title="Replicas",
       filter_type=filter_type,
       on_item_select=on_replica_select_wrapper,
-      on_filter_change=self._handle_replica_filter_change
+      on_filter_change=self._handle_replica_filter_change,
+      show_filter_option=show_filter_option
     )
 
-    return self._handle_replica_pagination_result(result, items_per_page, filter_type, on_replica_select)
+    return self._handle_replica_pagination_result(result, items_per_page, filter_type, on_replica_select, show_filter_option)
 
   def _handle_replica_filter_change(self, filter_type):
     """Handle replica filter change"""
     return PaginatedListResult(PaginationAction.FILTER_CHANGED, filter_type)
 
-  def _handle_replica_pagination_result(self, result, items_per_page, filter_type, on_replica_select):
+  def _handle_replica_pagination_result(self, result, items_per_page, filter_type, on_replica_select, show_filter_option):
     """Handle pagination result for replicas"""
     if result.action == PaginationAction.PREVIOUS_PAGE:
-      return self.show_paginated_replicas(result.data, items_per_page, filter_type, on_replica_select)
+      return self.show_paginated_replicas(result.data, items_per_page, filter_type, on_replica_select, show_filter_option)
     elif result.action == PaginationAction.NEXT_PAGE:
-      return self.show_paginated_replicas(result.data, items_per_page, filter_type, on_replica_select)
+      return self.show_paginated_replicas(result.data, items_per_page, filter_type, on_replica_select, show_filter_option)
     elif result.action == PaginationAction.GO_BACK:
       return State.WORK_WITH_REPLICAS
     elif result.action == PaginationAction.FILTER_CHANGED:
@@ -930,7 +905,7 @@ class StateMachine:
     else:
       # Use the page from result.data if available, otherwise default to 0
       current_page = result.data if result.data is not None else 0
-      return self.show_paginated_replicas(current_page, items_per_page, filter_type, on_replica_select)
+      return self.show_paginated_replicas(current_page, items_per_page, filter_type, on_replica_select, show_filter_option)
 
   def show_replica_filter_selection_with_callback(self, on_replica_select=None):
     """Show filter selection for replicas with optional callback preservation"""
@@ -948,11 +923,11 @@ class StateMachine:
       result = cli.launch()
 
       if result == "user only":
-        return self.show_paginated_replicas(filter_type="user", on_replica_select=on_replica_select)
+        return self.show_paginated_replicas(filter_type="user", on_replica_select=on_replica_select, show_filter_option=True)
       elif result == "system only":
-        return self.show_paginated_replicas(filter_type="system", on_replica_select=on_replica_select)
+        return self.show_paginated_replicas(filter_type="system", on_replica_select=on_replica_select, show_filter_option=True)
       elif result == "all replicas":
-        return self.show_paginated_replicas(filter_type="all", on_replica_select=on_replica_select)
+        return self.show_paginated_replicas(filter_type="all", on_replica_select=on_replica_select, show_filter_option=True)
     else:
       # Standard filter selection for normal browsing
       cli = Bullet(
@@ -965,13 +940,13 @@ class StateMachine:
       result = cli.launch()
 
       if result == "user only":
-        return self.show_paginated_replicas(filter_type="user")
+        return self.show_paginated_replicas(filter_type="user", show_filter_option=True)
       elif result == "system only":
-        return self.show_paginated_replicas(filter_type="system")
+        return self.show_paginated_replicas(filter_type="system", show_filter_option=True)
       elif result == "all replicas":
-        return self.show_paginated_replicas(filter_type="all")
+        return self.show_paginated_replicas(filter_type="all", show_filter_option=True)
     
-    return self.show_paginated_replicas()
+    return self.show_paginated_replicas(show_filter_option=True)
 
   def show_paginated_personas(self, page=0, items_per_page=10, filter_type="system", on_persona_select=None, show_filter_option=True):
     """Show paginated list of personas with selection
