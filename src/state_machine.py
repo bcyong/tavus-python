@@ -965,15 +965,7 @@ class StateMachine:
       input("Press Enter to continue...")
       return State.WORK_WITH_PERSONAS
 
-    # Filter personas based on type
-    if filter_type == "user":
-      filtered_personas = [p for p in self.personas if p.persona_type == "user"]
-    elif filter_type == "system":
-      filtered_personas = [p for p in self.personas if p.persona_type == "system"]
-    else:  # "all"
-      filtered_personas = self.personas
-
-    if not filtered_personas:
+    if not self.personas:
       # Create empty paginated list for proper empty state handling
       paginated_list = PaginatedList([])
       result = paginated_list.show(
@@ -985,7 +977,7 @@ class StateMachine:
       return self._handle_persona_pagination_result(result, items_per_page, filter_type, on_persona_select, show_filter_option)
 
     # Create paginated list with filtered personas
-    paginated_list = PaginatedList(filtered_personas, items_per_page)
+    paginated_list = PaginatedList(self.personas, items_per_page)
     paginated_list.set_page(page)
 
     def on_persona_select_wrapper(persona):
