@@ -176,7 +176,7 @@ class TavusAPIClient:
     try:
       response = requests.request("POST", url, headers=self.headers, json=persona_data)
       
-      if response.status_code == 201:
+      if response.status_code == 200:
         created_persona_data = response.json()
         persona = Persona.from_dict(created_persona_data)
         return True, "Successfully created persona", persona
