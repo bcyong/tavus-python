@@ -258,8 +258,12 @@ class StateMachine:
     
     if success:
       print(f"\n✅ {message}")
-      print(f"Replica ID: {response_data.get('replica_id', 'N/A')}")
-      print(f"Status: {response_data.get('status', 'N/A')}")
+      if response_data:
+        print(f"Replica ID: {response_data.get('replica_id', 'N/A')}")
+        print(f"Status: {response_data.get('status', 'N/A')}")
+      else:
+        print("Replica ID: N/A")
+        print("Status: N/A")
       print("\nNote: Replica training is now in progress. You can check the status later.")
     else:
       print(f"\n❌ {message}")
@@ -407,9 +411,144 @@ class StateMachine:
   def execute_create_persona(self):
     """Execute create persona functionality and return next state"""
     print("\n=== Create Persona ===")
-    print("Create persona functionality will be implemented here...")
-    # TODO: Implement create persona logic
+    
+    if self.api_client is None:
+      print("Error: API client not initialized. Please set your API key first.")
+      return State.MAIN_MENU
+
+    # Collect persona creation parameters
+    print("Enter persona name:")
+    persona_name = input("Persona Name: ")
+    
+    if not persona_name or not persona_name.strip():
+      print("Persona name cannot be empty. Please try again.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_PERSONAS
+
+    print("Enter system prompt (you can paste multi-line text):")
+    system_prompt = input("System Prompt: ")
+    
+    if not system_prompt or not system_prompt.strip():
+      print("System prompt cannot be empty. Please try again.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_PERSONAS
+
+    print("Enter context (you can paste multi-line text):")
+    context = input("Context: ")
+    
+    if not context or not context.strip():
+      print("Context cannot be empty. Please try again.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_PERSONAS
+
+    # Select default replica using paginated list
+    print("\nSelect default replica for this persona:")
+    default_replica_id = self._select_replica_for_persona()
+    
+    if default_replica_id is None:
+      print("No replica selected. Returning to persona creation.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_PERSONAS
+    
+    # Show final confirmation
+    print(f"\nConfirm persona creation:")
+    print(f"  Name: {persona_name}")
+    print(f"  System Prompt: {system_prompt[:100]}{'...' if len(system_prompt) > 100 else ''}")
+    print(f"  Context: {context[:100]}{'...' if len(context) > 100 else ''}")
+    print(f"  Default Replica ID: {default_replica_id}")
+    print(f"  Pipeline Mode: full (automatically set)")
+    print("=" * 50)
+    
+    cli = YesNo("Proceed with persona creation? ", default="n")
+    if not cli.launch():
+      print("Persona creation cancelled.")
+      input("Press Enter to continue...")
+      return State.WORK_WITH_PERSONAS
+    
+    # Prepare persona data
+    persona_data = {
+      "persona_name": persona_name,
+      "system_prompt": system_prompt,
+      "context": context,
+      "default_replica_id": default_replica_id,
+      "pipeline_mode": "full"
+    }
+    
+    with yaspin(text="Creating persona..."):
+      success, message, created_persona = self.api_client.create_persona(persona_data)
+    
+    if success and created_persona:
+      print(f"\n✅ {message}")
+      print(f"Persona ID: {created_persona.persona_id}")
+      print(f"Persona Name: {created_persona.persona_name}")
+      print("\nPersona created successfully!")
+    else:
+      print(f"\n❌ {message}")
+    
+    input("Press Enter to continue...")
     return State.WORK_WITH_PERSONAS
+
+  def _select_replica_for_persona(self, page=0, filter_type="all"):
+    """Show paginated replica list for persona creation selection"""
+    # Load replicas if not already loaded
+    if not self.replicas:
+      with yaspin(text="Loading replicas..."):
+        self.update_replicas()
+    
+    if not self.replicas:
+      print("No replicas found. Please create a replica first.")
+      return None
+    
+    def on_replica_select(replica):
+      # Return the selected replica ID for persona creation
+      return PaginatedListResult(PaginationAction.ITEM_SELECTED, replica.replica_id)
+    
+    # Use the existing show_paginated_replicas method with custom callbacks
+    result = self.show_paginated_replicas(
+      page=page, 
+      filter_type=filter_type, 
+      on_replica_select=on_replica_select,
+      show_filter_option=True
+    )
+    
+    # Handle the result
+    if isinstance(result, PaginatedListResult):
+      if result.action == PaginationAction.ITEM_SELECTED:
+        return result.data
+      elif result.action == PaginationAction.FILTER_CHANGED:
+        # Handle filter change by showing filter selection
+        return self._select_replica_for_persona_with_filter()
+      elif result.action == PaginationAction.GO_BACK:
+        # User chose to go back, return None
+        return None
+    
+    # If result is a State, it means we're navigating away
+    return None
+
+  def _select_replica_for_persona_with_filter(self):
+    """Show replica selection with filter handling for persona creation"""
+    # Show filter selection
+    print("\n=== Filter Replicas for Persona Creation ===")
+    
+    cli = Bullet(
+      prompt="Select filter type:",
+      choices=["user only", "system only", "all replicas"],
+      bullet="→",
+      margin=2,
+      shift=0,
+    )
+    result = cli.launch()
+
+    # Map filter selection to filter type
+    if result == "user only":
+      filter_type = "user"
+    elif result == "system only":
+      filter_type = "system"
+    else:  # "all replicas"
+      filter_type = "all"
+    
+    # Start replica selection with the selected filter
+    return self._select_replica_for_persona(page=0, filter_type=filter_type)
 
   def execute_list_personas(self):
     """Execute list personas functionality and return next state"""
@@ -443,13 +582,6 @@ class StateMachine:
     print(f"\nDeleting persona: {persona.persona_name} ({persona.persona_id})")
     print("=" * 50)
     
-    # Additional safety check - ensure only user personas can be deleted
-    if persona.persona_type != "user":
-      print(f"Error: Cannot delete system personas. This persona is of type '{persona.persona_type}'.")
-      print("Only user personas can be deleted.")
-      input("Press Enter to continue...")
-      return None  # Return to persona list
-    
     # Show full persona details first
     self.show_persona_details(persona)
     print("=" * 50)
@@ -463,7 +595,6 @@ class StateMachine:
     print(f"\nConfirm delete operation:")
     print(f"  Persona Name: {persona.persona_name}")
     print(f"  Persona ID: {persona.persona_id}")
-    print(f"  Persona Type: {persona.persona_type}")
     print("=" * 50)
     print("WARNING: This action cannot be undone!")
     print("=" * 50)
