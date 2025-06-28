@@ -6,7 +6,7 @@ from bullet import Input
 from yaspin import yaspin
 
 from api_client import TavusAPIClient
-from state_machine import StateMachine
+from state_machine_modular import StateMachineModular
 
 @click.command()
 @click.option('--api-key-file', '-f', 
@@ -16,18 +16,11 @@ def main(api_key_file):
   print("Welcome to the Tavus Python CLI Tool!")
 
   # Initialize state machine
-  state_machine = StateMachine()
+  state_machine = StateMachineModular()
   
   # Set initial API key
   set_initial_api_key(state_machine, api_key_file)
 
-  print("Updating replicas and personas...")
-  with yaspin(text="Loading replicas..."):
-    state_machine.update_replicas()
-  with yaspin(text="Loading personas..."):
-    state_machine.update_personas()
-  with yaspin(text="Loading videos..."):
-    state_machine.update_videos()
   print("Initialization complete!")
 
   # State machine loop
@@ -45,12 +38,15 @@ def set_initial_api_key(state_machine, api_key_file):
   else:
     cli = Input(prompt="Enter your Tavus API Key: ")
     api_key = cli.launch()
-    print(f"Tavus API key: {api_key}")
-    
-    # Initialize API client
-    api_client = TavusAPIClient(api_key)
-    state_machine.set_api_client(api_client)
-    state_machine.set_api_key(api_key)
+    if api_key:  # Add null check
+      print(f"Tavus API key: {api_key}")
+      
+      # Initialize API client
+      api_client = TavusAPIClient(api_key)
+      state_machine.set_api_client(api_client)
+      state_machine.set_api_key(api_key)
+    else:
+      print("No API key provided. You can set it later from the main menu.")
 
 if __name__ == "__main__":
   main()
