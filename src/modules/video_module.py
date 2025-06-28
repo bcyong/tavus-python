@@ -5,6 +5,7 @@ from yaspin import yaspin
 from . import ModuleInterface, CommonStates
 from models import Video
 from paginated_list import PaginatedList, PaginatedListResult, PaginationAction, SectionedPaginatedList
+from paginated_replica_list import PaginatedReplicaList
 
 class VideoModule(ModuleInterface):
     """Module for handling video management"""
@@ -348,52 +349,18 @@ class VideoModule(ModuleInterface):
             input("Press Enter to continue...")
             return None
 
-        # Filter replicas based on type
-        if filter_type == "user":
-            filtered_replicas = [r for r in self.replicas if r.replica_type == "user"]
-            sectioned_replicas = [filtered_replicas]
-            section_names = ["User Replicas"]
-        elif filter_type == "system":
-            filtered_replicas = [r for r in self.replicas if r.replica_type == "system"]
-            sectioned_replicas = [filtered_replicas]
-            section_names = ["System Replicas"]
-        else:  # "all"
-            user_replicas = [r for r in self.replicas if r.replica_type == "user"]
-            system_replicas = [r for r in self.replicas if r.replica_type == "system"]
-            filtered_replicas = user_replicas + system_replicas
-            sectioned_replicas = [user_replicas, system_replicas]
-            section_names = ["User Replicas", "System Replicas"]
-
-        if not filtered_replicas:
-            print(f"No {filter_type} replicas found.")
-            input("Press Enter to continue...")
-            return None
-
-        # Create paginated list - use sectioned list for "all" filter
-        if filter_type == "all":
-            paginated_list = SectionedPaginatedList(filtered_replicas, 10)
-            paginated_list.set_sections(sectioned_replicas, section_names)
-        else:
-            paginated_list = PaginatedList(filtered_replicas, 10)
-        
-        paginated_list.set_page(page)
-
-        def on_replica_select_wrapper(replica):
-            # Return the replica ID for selection
-            return PaginatedListResult(PaginationAction.ITEM_SELECTED, replica.replica_id)
-
-        def on_filter_change_wrapper(filter_type):
-            return PaginatedListResult(PaginationAction.FILTER_CHANGED, filter_type)
-
+        # Use the generic paginated replica list
+        paginated_list = PaginatedReplicaList(self.replicas, 10)
         result = paginated_list.show(
-            title="Select Replica",
+            state_machine=state_machine,
+            page=page,
             filter_type=filter_type,
-            on_item_select=on_replica_select_wrapper,
-            on_filter_change=on_filter_change_wrapper,
-            show_filter_option=True
+            show_filter_option=True,
+            title="Select Replica",
+            return_replica_id=True
         )
-
-        return self._handle_replica_selection_result(result, state_machine, page, filter_type)
+        
+        return result
     
     def _update_replicas_for_selection(self, state_machine) -> None:
         """Update the replicas list from API for selection"""
@@ -405,45 +372,4 @@ class VideoModule(ModuleInterface):
         if success:
             self.replicas = fetched_replicas
         else:
-            print(message)
-    
-    def _handle_replica_selection_result(self, result, state_machine, current_page=0, current_filter="all"):
-        """Handle pagination result for replica selection"""
-        if result.action == PaginationAction.PREVIOUS_PAGE:
-            return self._show_paginated_replicas_for_selection(state_machine, result.data, current_filter)
-        elif result.action == PaginationAction.NEXT_PAGE:
-            return self._show_paginated_replicas_for_selection(state_machine, result.data, current_filter)
-        elif result.action == PaginationAction.GO_BACK:
-            return None  # Cancel selection
-        elif result.action == PaginationAction.FILTER_CHANGED:
-            # Handle filter change - show filter selection
-            return self._show_replica_filter_selection_for_video(state_machine)
-        elif result.action == PaginationAction.ITEM_SELECTED:
-            # Return the selected replica ID
-            return result.data
-        else:
-            # Use the page from result.data if available, otherwise default to 0
-            current_page = result.data if result.data is not None else 0
-            return self._show_paginated_replicas_for_selection(state_machine, current_page, current_filter)
-    
-    def _show_replica_filter_selection_for_video(self, state_machine):
-        """Show filter selection for replicas when creating a video"""
-        print("\n=== Filter Replicas ===")
-        
-        cli = Bullet(
-            prompt="Select filter type:",
-            choices=["user", "system", "all"],
-            bullet="→",
-            margin=2,
-            shift=0,
-        )
-        result = cli.launch()
-
-        if result == "user":
-            return self._show_paginated_replicas_for_selection(state_machine, filter_type="user")
-        elif result == "system":
-            return self._show_paginated_replicas_for_selection(state_machine, filter_type="system")
-        elif result == "all":
-            return self._show_paginated_replicas_for_selection(state_machine, filter_type="all")
-        
-        return self._show_paginated_replicas_for_selection(state_machine, filter_type="all") 
+            print(message) 
