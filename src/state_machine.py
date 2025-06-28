@@ -1019,6 +1019,9 @@ class StateMachine:
       return State.WORK_WITH_PERSONAS
     elif result.action == PaginationAction.FILTER_CHANGED:
       return State.SELECT_PERSONA_TYPE
+    elif result.action == PaginationAction.ITEM_SELECTED:
+      # Return the state from the custom callback
+      return result.data
     else:
       # Use the page from result.data if available, otherwise default to 0
       current_page = result.data if result.data is not None else 0
