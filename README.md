@@ -87,21 +87,29 @@ python src/main.py --api-key-file /path/to/your/api_key.txt
 ```
 tavus-python/
 ├── src/
-│   ├── main.py              # Main CLI entry point
-│   ├── api_client.py        # Tavus API client implementation
-│   ├── state_machine.py     # Interactive state machine
-│   ├── paginated_list.py    # Paginated list display utilities
-│   ├── paginated_bullet.py  # Paginated bullet point selection
+│   ├── main.py                    # Main CLI entry point
+│   ├── api_client.py              # Tavus API client implementation
+│   ├── state_machine_modular.py   # Interactive state machine with modular architecture
+│   ├── paginated_list.py          # Paginated list display utilities
+│   ├── paginated_bullet.py        # Paginated bullet point selection
+│   ├── paginated_replica_list.py  # Specialized replica list pagination
 │   ├── models/
 │   │   ├── __init__.py
-│   │   ├── persona.py       # Persona data models
-│   │   ├── replica.py       # Replica data models
-│   │   └── video.py         # Video data models
-│   └── .tavus_api_key       # API key file (create this)
+│   │   ├── persona.py             # Persona data models
+│   │   ├── replica.py             # Replica data models
+│   │   └── video.py               # Video data models
+│   ├── modules/
+│   │   ├── __init__.py            # Module registry and initialization
+│   │   ├── api_key_module.py      # API key management module
+│   │   ├── persona_module.py      # Persona management operations
+│   │   ├── replica_module.py      # Replica management operations
+│   │   └── video_module.py        # Video management operations
+│   └── .tavus_api_key             # API key file (create this)
 ├── img/
-│   └── demo.gif             # Demo animation
+│   └── demo.gif                   # Demo animation
+├── MODULAR_ARCHITECTURE.md        # Documentation of modular design
 ├── README.md
-└── requirements.txt         # Python dependencies
+└── requirements.txt               # Python dependencies
 ```
 
 ## API Key Security
