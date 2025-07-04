@@ -111,8 +111,6 @@ class Persona:
       f"  ID: {self.persona_id}",
       f"  Name: {self.persona_name}",
       f"  Default Replica ID: {self.default_replica_id or 'None'}",
-      f"  Created: {self.created_at}",
-      f"  Updated: {self.updated_at}",
     ]
     
     # Add computed properties

@@ -99,22 +99,6 @@ class Video:
     """Check if the video has a GIF thumbnail URL"""
     return bool(self.gif_thumbnail_url and self.gif_thumbnail_url.strip())
   
-  def get_created_date(self) -> Optional[datetime]:
-    """Parse and return the created_at date as a datetime object"""
-    try:
-      return datetime.fromisoformat(self.created_at.replace('Z', '+00:00'))
-    except (ValueError, AttributeError):
-      return None
-  
-  def get_updated_date(self) -> Optional[datetime]:
-    """Parse and return the updated_at date as a datetime object"""
-    try:
-      if not self.updated_at:
-        return None
-      return datetime.fromisoformat(self.updated_at.replace('Z', '+00:00'))
-    except (ValueError, AttributeError):
-      return None
-  
   def get_script(self) -> Optional[str]:
     """Get the script from the data dictionary"""
     return self.data.get('script')
@@ -143,8 +127,8 @@ class Video:
       f"  Name: {self.video_name}",
       f"  Status: {self.status}",
       f"  Created: {self.created_at}",
+      f"  Updated: {self.updated_at}",
     ]
-    
     if self.status_details:
       lines.append(f"  Status Details: {self.status_details}")
     
@@ -163,27 +147,12 @@ class Video:
     if self.gif_thumbnail_url:
       lines.append(f"  GIF Thumbnail: {self.gif_thumbnail_url}")
     
-    if self.updated_at:
-      lines.append(f"  Updated: {self.updated_at}")
-    
-    # Add computed properties
-    created_date = self.get_created_date()
-    if created_date:
-      lines.append(f"  Created Date: {created_date.strftime('%Y-%m-%d %H:%M:%S')}")
-    
-    updated_date = self.get_updated_date()
-    if updated_date:
-      lines.append(f"  Updated Date: {updated_date.strftime('%Y-%m-%d %H:%M:%S')}")
-    
-    # Add script preview
-    lines.append(f"  Script: {self.get_script_preview(1000)}")
-    
     # Add data information
     if self.data:
       lines.append(f"  Data: {len(self.data)} items")
       for key, value in self.data.items():
         if key == 'script':
-          lines.append(f"    - {key}: {self.get_script_preview(200)}")
+          lines.append(f"    - Script: {self.get_script_preview(10000)}")
         else:
           lines.append(f"    - {key}: {value}")
     else:
