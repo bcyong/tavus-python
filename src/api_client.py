@@ -2,7 +2,7 @@
 
 import requests
 from typing import Tuple, List, Dict, Optional
-from models import Replica, Persona, Video
+from models import Replica, Persona, Video, Conversation
 
 class TavusAPIClient:
   """Client for interacting with the Tavus API"""
@@ -355,4 +355,132 @@ class TavusAPIClient:
         return False, f"Error: HTTP {response.status_code} - {response.text}"
         
     except Exception as e:
-      return False, f"Error renaming video: {e}" 
+      return False, f"Error renaming video: {e}"
+
+  def list_conversations(self, limit: int = 1000, status: Optional[str] = None) -> Tuple[bool, str, List[Conversation]]:
+    """
+    List conversations from Tavus API
+    
+    Args:
+      limit: The number of conversations to return. Default is 1000.
+      status: Optional status filter for conversations (e.g., 'active', 'completed', etc.)
+      
+    Returns:
+      Tuple[bool, str, List[Conversation]]: (success, message, conversations_list)
+    """
+    url = f"{self.base_url}/conversations?limit={limit}"
+    if status:
+      url += f"&status={status}"
+    
+    try:
+      response = requests.request("GET", url, headers=self.headers)
+      
+      if response.status_code == 200:
+        response_data = response.json()
+        conversations_data = response_data.get('data', [])
+        conversations = [Conversation.from_dict(conv_data) for conv_data in conversations_data]
+        return True, f"Successfully fetched {len(conversations)} conversation(s)", conversations
+      else:
+        return False, f"Error: HTTP {response.status_code} - {response.text}", []
+        
+    except Exception as e:
+      return False, f"Error fetching conversations: {e}", []
+
+  def get_conversation(self, conversation_id: str) -> Tuple[bool, str, Optional[Conversation]]:
+    """
+    Get a specific conversation by ID
+    
+    Args:
+      conversation_id: The ID of the conversation to fetch
+      
+    Returns:
+      Tuple[bool, str, Optional[Conversation]]: (success, message, conversation_data)
+    """
+    url = f"{self.base_url}/conversations/{conversation_id}?verbose=true"
+    
+    try:
+      response = requests.request("GET", url, headers=self.headers)
+      
+      if response.status_code == 200:
+        conversation_data = response.json()
+        conversation = Conversation.from_dict(conversation_data)
+        return True, "Successfully fetched conversation", conversation
+      else:
+        return False, f"Error: HTTP {response.status_code} - {response.text}", None
+        
+    except Exception as e:
+      return False, f"Error fetching conversation: {e}", None
+
+  def create_conversation(self, conversation_data: Dict) -> Tuple[bool, str, Optional[Conversation]]:
+    """
+    Create a new conversation
+    
+    Args:
+      conversation_data: Dictionary containing conversation creation parameters
+        Required fields: persona_id, replica_id
+        Optional fields: conversation_name, metadata
+      
+    Returns:
+      Tuple[bool, str, Optional[Conversation]]: (success, message, created_conversation)
+    """
+    url = f"{self.base_url}/conversations"
+    
+    try:
+      response = requests.request("POST", url, headers=self.headers, json=conversation_data)
+      
+      if response.status_code == 200:
+        created_conversation_data = response.json()
+        conversation = Conversation.from_dict(created_conversation_data)
+        return True, "Successfully created conversation", conversation
+      else:
+        return False, f"Error: HTTP {response.status_code} - {response.text}", None
+        
+    except Exception as e:
+      return False, f"Error creating conversation: {e}", None
+
+  def delete_conversation(self, conversation_id: str) -> Tuple[bool, str]:
+    """
+    Delete a conversation by ID
+    
+    Args:
+      conversation_id: The ID of the conversation to delete
+      
+    Returns:
+      Tuple[bool, str]: (success, message)
+    """
+    url = f"{self.base_url}/conversations/{conversation_id}"
+    
+    try:
+      response = requests.request("DELETE", url, headers=self.headers)
+      
+      if response.status_code == 204:
+        return True, "Successfully deleted conversation"
+      else:
+        return False, f"Error: HTTP {response.status_code} - {response.text}"
+        
+    except Exception as e:
+      return False, f"Error deleting conversation: {e}"
+
+  def end_conversation(self, conversation_id: str) -> Tuple[bool, str]:
+    """
+    End a conversation by ID
+    
+    Args:
+      conversation_id: The ID of the conversation to end
+      
+    Returns:
+      Tuple[bool, str]: (success, message)
+    """
+    url = f"{self.base_url}/conversations/{conversation_id}/end"
+    
+    try:
+      response = requests.request("POST", url, headers=self.headers)
+      
+      if response.status_code == 200:
+        return True, "Successfully ended conversation"
+      else:
+        return False, f"Error: HTTP {response.status_code} - {response.text}"
+        
+    except Exception as e:
+      return False, f"Error ending conversation: {e}"
+
