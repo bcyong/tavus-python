@@ -15,7 +15,7 @@ class VideoModule(ModuleInterface):
         self.replicas = []  # Local storage for replicas (needed for video creation)
     
     def get_name(self) -> str:
-        return "video"
+        return "Video Management"
     
     def get_states(self) -> list:
         return [

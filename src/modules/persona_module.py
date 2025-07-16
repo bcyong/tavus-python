@@ -15,7 +15,7 @@ class PersonaModule(ModuleInterface):
         self.current_filter = "user"  # Default to user personas
     
     def get_name(self) -> str:
-        return "persona"
+        return "Persona Management"
     
     def get_states(self) -> list:
         return [
