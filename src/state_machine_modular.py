@@ -6,6 +6,7 @@ from modules.api_key_module import APIKeyModule
 from modules.replica_module import ReplicaModule
 from modules.persona_module import PersonaModule
 from modules.video_module import VideoModule
+from modules.conversation_module import ConversationModule
 
 class StateMachineModular:
     """Modular state machine that uses plugins for functionality"""
@@ -16,6 +17,7 @@ class StateMachineModular:
         ReplicaModule,
         PersonaModule,
         VideoModule,
+        ConversationModule,
     ]
     
     def __init__(self):
